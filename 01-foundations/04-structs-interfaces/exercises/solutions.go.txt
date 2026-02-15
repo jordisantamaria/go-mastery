@@ -1,0 +1,119 @@
+// SOLUCIONES — NO mires hasta haber intentado resolver los ejercicios!
+// Renombra este archivo a solutions.go para compilar y testear.
+
+package exercises
+
+import "fmt"
+
+// --- BankAccount ---
+
+type BankAccount struct {
+	owner   string
+	balance float64
+}
+
+func NewBankAccount(owner string, initial float64) *BankAccount {
+	return &BankAccount{owner: owner, balance: initial}
+}
+
+func (a *BankAccount) Deposit(amount float64) error {
+	if amount <= 0 {
+		return fmt.Errorf("deposit amount must be positive, got %.2f", amount)
+	}
+	a.balance += amount
+	return nil
+}
+
+func (a *BankAccount) Withdraw(amount float64) error {
+	if amount <= 0 {
+		return fmt.Errorf("withdraw amount must be positive, got %.2f", amount)
+	}
+	if amount > a.balance {
+		return fmt.Errorf("insufficient funds: balance %.2f, requested %.2f", a.balance, amount)
+	}
+	a.balance -= amount
+	return nil
+}
+
+func (a *BankAccount) Balance() float64 {
+	return a.balance
+}
+
+func (a *BankAccount) Owner() string {
+	return a.owner
+}
+
+func (a *BankAccount) String() string {
+	return fmt.Sprintf("BankAccount{owner: %s, balance: %.2f}", a.owner, a.balance)
+}
+
+// --- Shapes ---
+
+type Triangle struct {
+	Base, Height       float64
+	SideA, SideB, SideC float64
+}
+
+type Square struct {
+	Side float64
+}
+
+func (t Triangle) Area() float64 {
+	return (t.Base * t.Height) / 2
+}
+
+func (t Triangle) Perimeter() float64 {
+	return t.SideA + t.SideB + t.SideC
+}
+
+func (s Square) Area() float64 {
+	return s.Side * s.Side
+}
+
+func (s Square) Perimeter() float64 {
+	return 4 * s.Side
+}
+
+func TotalArea(shapes []Shape) float64 {
+	total := 0.0
+	for _, s := range shapes {
+		total += s.Area()
+	}
+	return total
+}
+
+// --- LoggingAccount ---
+
+type LoggingAccount struct {
+	*BankAccount
+}
+
+func NewLoggingAccount(owner string, initial float64) *LoggingAccount {
+	return &LoggingAccount{
+		BankAccount: NewBankAccount(owner, initial),
+	}
+}
+
+func (la *LoggingAccount) Deposit(amount float64) error {
+	fmt.Printf("Depositing %.2f to %s's account\n", amount, la.Owner())
+	return la.BankAccount.Deposit(amount)
+}
+
+// --- Describe ---
+
+func Describe(v any) string {
+	switch val := v.(type) {
+	case int:
+		return fmt.Sprintf("integer: %d", val)
+	case string:
+		return fmt.Sprintf("string: %s (length %d)", val, len(val))
+	case bool:
+		return fmt.Sprintf("boolean: %t", val)
+	case Shape:
+		return fmt.Sprintf("shape with area %.2f", val.Area())
+	case nil:
+		return "nothing"
+	default:
+		return fmt.Sprintf("unknown: %T", val)
+	}
+}

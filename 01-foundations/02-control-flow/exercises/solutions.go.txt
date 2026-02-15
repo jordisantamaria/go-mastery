@@ -1,0 +1,80 @@
+// SOLUCIONES — NO mires hasta haber intentado resolver los ejercicios!
+// Renombra este archivo a solutions.go para compilar y testear.
+
+package exercises
+
+import "fmt"
+
+func FizzBuzz(n int) string {
+	switch {
+	case n%15 == 0:
+		return "FizzBuzz"
+	case n%3 == 0:
+		return "Fizz"
+	case n%5 == 0:
+		return "Buzz"
+	default:
+		return fmt.Sprintf("%d", n)
+	}
+}
+
+func Classify(temp int) string {
+	switch {
+	case temp < 0:
+		return "freezing"
+	case temp <= 15:
+		return "cold"
+	case temp <= 25:
+		return "mild"
+	case temp <= 35:
+		return "warm"
+	default:
+		return "hot"
+	}
+}
+
+func SumRange(from, to int) int {
+	if from > to {
+		return 0
+	}
+	sum := 0
+	for i := from; i <= to; i++ {
+		sum += i
+	}
+	return sum
+}
+
+func FindIndex(items []string, target string) int {
+	for i, item := range items {
+		if item == target {
+			return i
+		}
+	}
+	return -1
+}
+
+func MatrixSum(matrix [][]int) int {
+	sum := 0
+	for _, row := range matrix {
+		for _, val := range row {
+			sum += val
+		}
+	}
+	return sum
+}
+
+func Collatz(n int) int {
+	if n <= 0 {
+		return -1
+	}
+	steps := 0
+	for n != 1 {
+		if n%2 == 0 {
+			n /= 2
+		} else {
+			n = 3*n + 1
+		}
+		steps++
+	}
+	return steps
+}

@@ -1,0 +1,75 @@
+// SOLUCIONES — NO mires hasta haber intentado resolver los ejercicios!
+// Renombra este archivo a solutions.go para compilar y testear.
+
+package exercises
+
+func Apply(nums []int, fn func(int) int) []int {
+	result := make([]int, len(nums))
+	for i, n := range nums {
+		result[i] = fn(n)
+	}
+	return result
+}
+
+func Filter(nums []int, predicate func(int) bool) []int {
+	result := make([]int, 0)
+	for _, n := range nums {
+		if predicate(n) {
+			result = append(result, n)
+		}
+	}
+	return result
+}
+
+func Reduce(nums []int, initial int, fn func(int, int) int) int {
+	acc := initial
+	for _, n := range nums {
+		acc = fn(acc, n)
+	}
+	return acc
+}
+
+func MakeMultiplier(factor int) func(int) int {
+	return func(n int) int {
+		return n * factor
+	}
+}
+
+func MakeCounter() (increment func(), getCount func() int) {
+	count := 0
+	increment = func() {
+		count++
+	}
+	getCount = func() int {
+		return count
+	}
+	return
+}
+
+func Compose(f, g func(int) int) func(int) int {
+	return func(n int) int {
+		return g(f(n))
+	}
+}
+
+func Memoize(fn func(int) int) func(int) int {
+	cache := make(map[int]int)
+	return func(n int) int {
+		if result, ok := cache[n]; ok {
+			return result
+		}
+		result := fn(n)
+		cache[n] = result
+		return result
+	}
+}
+
+func Pipeline(fns ...func(int) int) func(int) int {
+	return func(n int) int {
+		result := n
+		for _, fn := range fns {
+			result = fn(result)
+		}
+		return result
+	}
+}

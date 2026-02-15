@@ -1,0 +1,261 @@
+// SOLUCIONES — NO mires hasta haber intentado resolver los ejercicios!
+// Renombra este archivo a solutions.go para compilar y testear.
+
+package exercises
+
+import (
+	"context"
+	"sync"
+)
+
+// --- Ejercicio 1: ConcurrentSum ---
+
+func ConcurrentSum(nums []int, numWorkers int) int {
+	if len(nums) == 0 {
+		return 0
+	}
+
+	// Ajustar workers si hay mas workers que elementos
+	if numWorkers > len(nums) {
+		numWorkers = len(nums)
+	}
+
+	results := make(chan int, numWorkers)
+	chunkSize := (len(nums) + numWorkers - 1) / numWorkers // redondear hacia arriba
+
+	var wg sync.WaitGroup
+	for i := 0; i < numWorkers; i++ {
+		start := i * chunkSize
+		end := start + chunkSize
+		if start >= len(nums) {
+			break
+		}
+		if end > len(nums) {
+			end = len(nums)
+		}
+
+		wg.Add(1)
+		go func(chunk []int) {
+			defer wg.Done()
+			sum := 0
+			for _, n := range chunk {
+				sum += n
+			}
+			results <- sum
+		}(nums[start:end])
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	total := 0
+	for partial := range results {
+		total += partial
+	}
+	return total
+}
+
+// --- Ejercicio 2: SafeMap ---
+
+type SafeMap struct {
+	mu   sync.RWMutex
+	data map[string]int
+}
+
+func NewSafeMap() *SafeMap {
+	return &SafeMap{data: make(map[string]int)}
+}
+
+func (m *SafeMap) Set(key string, value int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.data[key] = value
+}
+
+func (m *SafeMap) Get(key string) (int, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	val, ok := m.data[key]
+	return val, ok
+}
+
+func (m *SafeMap) Delete(key string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.data, key)
+}
+
+func (m *SafeMap) Len() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.data)
+}
+
+// --- Ejercicio 3: Pipeline ---
+
+func Generate(nums []int) <-chan int {
+	out := make(chan int)
+	go func() {
+		for _, n := range nums {
+			out <- n
+		}
+		close(out)
+	}()
+	return out
+}
+
+func Square(in <-chan int) <-chan int {
+	out := make(chan int)
+	go func() {
+		for n := range in {
+			out <- n * n
+		}
+		close(out)
+	}()
+	return out
+}
+
+func FilterEven(in <-chan int) <-chan int {
+	out := make(chan int)
+	go func() {
+		for n := range in {
+			if n%2 == 0 {
+				out <- n
+			}
+		}
+		close(out)
+	}()
+	return out
+}
+
+func RunPipeline(nums []int) []int {
+	ch := Generate(nums)
+	ch = Square(ch)
+	ch = FilterEven(ch)
+
+	var results []int
+	for v := range ch {
+		results = append(results, v)
+	}
+	return results
+}
+
+// --- Ejercicio 4: WorkerPool ---
+
+func WorkerPool(jobs []int, numWorkers int, process func(int) int) []int {
+	if len(jobs) == 0 {
+		return []int{}
+	}
+
+	jobsCh := make(chan int, len(jobs))
+	resultsCh := make(chan int, len(jobs))
+
+	// Lanzar workers
+	var wg sync.WaitGroup
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobsCh {
+				resultsCh <- process(job)
+			}
+		}()
+	}
+
+	// Enviar jobs
+	for _, j := range jobs {
+		jobsCh <- j
+	}
+	close(jobsCh)
+
+	// Cerrar results cuando terminen los workers
+	go func() {
+		wg.Wait()
+		close(resultsCh)
+	}()
+
+	// Recoger resultados
+	var results []int
+	for r := range resultsCh {
+		results = append(results, r)
+	}
+	return results
+}
+
+// --- Ejercicio 5: FirstResult ---
+
+func FirstResult(ctx context.Context, fns ...func(context.Context) (string, error)) (string, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel() // cancelar las demas cuando tengamos un resultado
+
+	type result struct {
+		value string
+		err   error
+	}
+
+	ch := make(chan result, 1) // buffered para no bloquear goroutines perdedoras
+
+	for _, fn := range fns {
+		go func(f func(context.Context) (string, error)) {
+			val, err := f(ctx)
+			select {
+			case ch <- result{val, err}:
+			case <-ctx.Done():
+			}
+		}(fn)
+	}
+
+	select {
+	case r := <-ch:
+		return r.value, r.err
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
+// --- Ejercicio 6: ProcessWithLimit (Semaphore) ---
+
+func ProcessWithLimit(items []int, maxConcurrent int, process func(int) int) []int {
+	sem := make(chan struct{}, maxConcurrent) // semaforo
+	results := make([]int, len(items))
+	var wg sync.WaitGroup
+
+	for i, item := range items {
+		wg.Add(1)
+		go func(idx, val int) {
+			defer wg.Done()
+			sem <- struct{}{}        // adquirir slot
+			defer func() { <-sem }() // liberar slot
+			results[idx] = process(val)
+		}(i, item)
+	}
+
+	wg.Wait()
+	return results
+}
+
+// --- Ejercicio 7: Merge (Fan-in) ---
+
+func Merge(channels ...<-chan int) <-chan int {
+	var wg sync.WaitGroup
+	merged := make(chan int)
+
+	for _, ch := range channels {
+		wg.Add(1)
+		go func(c <-chan int) {
+			defer wg.Done()
+			for v := range c {
+				merged <- v
+			}
+		}(ch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(merged)
+	}()
+
+	return merged
+}

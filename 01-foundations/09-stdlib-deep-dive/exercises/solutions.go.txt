@@ -1,0 +1,142 @@
+// SOLUCIONES — NO mires hasta haber intentado resolver los ejercicios!
+// Renombra este archivo a solutions.go y borra exercises.go para testear.
+package exercises
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/fs"
+	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+)
+
+// --- Ejercicio 1: CountWords ---
+func CountWords(r io.Reader) (map[string]int, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int)
+	words := strings.Fields(string(data))
+	for _, word := range words {
+		counts[strings.ToLower(word)]++
+	}
+	return counts, nil
+}
+
+// --- Ejercicio 2: LineCount ---
+func LineCount(r io.Reader) (int, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return 0, err
+	}
+
+	text := string(data)
+	if text == "" {
+		return 0, nil
+	}
+
+	count := strings.Count(text, "\n")
+	// Si el texto no termina en newline, la ultima linea tambien cuenta
+	if !strings.HasSuffix(text, "\n") {
+		count++
+	}
+	return count, nil
+}
+
+// --- Ejercicio 3: ToJSON ---
+func ToJSON(v any) (string, error) {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// --- Ejercicio 4: FromJSON ---
+func FromJSON[T any](data string) (T, error) {
+	var result T
+	err := json.Unmarshal([]byte(data), &result)
+	return result, err
+}
+
+// --- Ejercicio 5: CopyFile ---
+func CopyFile(src, dst string) (int64, error) {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return 0, err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return 0, err
+	}
+	defer dstFile.Close()
+
+	return io.Copy(dstFile, srcFile)
+}
+
+// --- Ejercicio 6: FindFiles ---
+func FindFiles(root string, ext string) ([]string, error) {
+	var files []string
+
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && filepath.Ext(path) == ext {
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			files = append(files, rel)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Strings(files)
+	return files, nil
+}
+
+// --- Ejercicio 7: HTTPGet ---
+func HTTPGet(url string, timeout time.Duration) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+// --- Ejercicio 8: MultiMerge ---
+func MultiMerge(readers ...io.Reader) io.Reader {
+	if len(readers) == 0 {
+		return strings.NewReader("")
+	}
+	return io.MultiReader(readers...)
+}

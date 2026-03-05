@@ -1,0 +1,52 @@
+# Docker Compose para levantar la plataforma de microservicios completa.
+# Cada servicio se ejecuta en su propio contenedor, comunicandose via RPC.
+#
+# Uso:
+#   docker compose up --build
+#   docker compose down
+
+services:
+  userservice:
+    build: .
+    command: ["/userservice"]
+    ports:
+      - "50051:50051"
+    environment:
+      USER_SERVICE_ADDR: ":50051"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  orderservice:
+    build: .
+    command: ["/orderservice"]
+    ports:
+      - "50052:50052"
+    environment:
+      ORDER_SERVICE_ADDR: ":50052"
+      USER_SERVICE_ADDR: "userservice:50051"
+    depends_on:
+      userservice:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "50052"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  gateway:
+    build: .
+    command: ["/gateway"]
+    ports:
+      - "8080:8080"
+    environment:
+      GATEWAY_ADDR: ":8080"
+      USER_SERVICE_ADDR: "userservice:50051"
+      ORDER_SERVICE_ADDR: "orderservice:50052"
+    depends_on:
+      userservice:
+        condition: service_healthy
+      orderservice:
+        condition: service_healthy

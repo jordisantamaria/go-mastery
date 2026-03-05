@@ -1,0 +1,376 @@
+// Renombra este archivo a solutions.go y borra challenges.go para testear.
+//
+// Cada solucion incluye:
+// - Explicacion del algoritmo en español
+// - Complejidad temporal y espacial (Big-O)
+// - Notas sobre por que este enfoque es idiomatico en Go
+
+package challenges
+
+import "sort"
+
+// ListNode representa un nodo de una singly linked list.
+type ListNode struct {
+	Val  int
+	Next *ListNode
+}
+
+// TreeNode representa un nodo de un arbol binario.
+type TreeNode struct {
+	Val   int
+	Left  *TreeNode
+	Right *TreeNode
+}
+
+// --- LRU Cache ---
+// Implementacion con doubly linked list + hash map.
+// La linked list mantiene el orden de uso: head = mas reciente, tail = menos reciente.
+// El hash map permite acceso O(1) a los nodos por key.
+//
+// Complejidad: Get O(1), Put O(1)
+// Espacio: O(capacity)
+
+type LRUCache struct {
+	capacity int
+	items    map[int]*lruNode
+	head     *lruNode // dummy head (MRU end)
+	tail     *lruNode // dummy tail (LRU end)
+}
+
+type lruNode struct {
+	key, value int
+	prev, next *lruNode
+}
+
+func NewLRUCache(capacity int) *LRUCache {
+	// Usamos nodos dummy para head y tail para simplificar la logica
+	// de insercion/eliminacion (no hay que manejar nil).
+	head := &lruNode{}
+	tail := &lruNode{}
+	head.next = tail
+	tail.prev = head
+
+	return &LRUCache{
+		capacity: capacity,
+		items:    make(map[int]*lruNode),
+		head:     head,
+		tail:     tail,
+	}
+}
+
+// remove desconecta un nodo de la lista.
+func (c *LRUCache) remove(node *lruNode) {
+	node.prev.next = node.next
+	node.next.prev = node.prev
+}
+
+// pushFront inserta un nodo justo despues del dummy head (posicion MRU).
+func (c *LRUCache) pushFront(node *lruNode) {
+	node.next = c.head.next
+	node.prev = c.head
+	c.head.next.prev = node
+	c.head.next = node
+}
+
+func (c *LRUCache) Get(key int) (int, bool) {
+	node, ok := c.items[key]
+	if !ok {
+		return 0, false
+	}
+	// Mover al frente (mas recientemente usado)
+	c.remove(node)
+	c.pushFront(node)
+	return node.value, true
+}
+
+func (c *LRUCache) Put(key, value int) {
+	// Si la key ya existe, actualizar el valor y mover al frente
+	if node, ok := c.items[key]; ok {
+		node.value = value
+		c.remove(node)
+		c.pushFront(node)
+		return
+	}
+
+	// Si estamos en capacidad maxima, desalojar el LRU (nodo antes del tail)
+	if len(c.items) >= c.capacity {
+		lru := c.tail.prev
+		c.remove(lru)
+		delete(c.items, lru.key)
+	}
+
+	// Insertar nuevo nodo al frente
+	node := &lruNode{key: key, value: value}
+	c.items[key] = node
+	c.pushFront(node)
+}
+
+// --- TwoSum ---
+// Algoritmo: usar un hash map para buscar el complemento de cada numero.
+// Para cada numero, calculamos target - num y verificamos si ya lo vimos.
+//
+// Complejidad temporal: O(n) — una sola pasada por el array
+// Complejidad espacial: O(n) — el hash map puede contener hasta n elementos
+func TwoSum(nums []int, target int) [2]int {
+	// map[valor] -> indice donde lo vimos
+	seen := make(map[int]int)
+
+	for i, num := range nums {
+		complement := target - num
+		if j, ok := seen[complement]; ok {
+			return [2]int{j, i}
+		}
+		seen[num] = i
+	}
+
+	// Segun el enunciado, siempre hay solucion
+	return [2]int{-1, -1}
+}
+
+// --- ValidParentheses ---
+// Algoritmo: usar un stack. Para cada caracter de apertura, pushear el cierre esperado.
+// Para cada caracter de cierre, verificar que coincida con el top del stack.
+//
+// Complejidad temporal: O(n) — una pasada por el string
+// Complejidad espacial: O(n) — el stack puede crecer hasta n/2
+func ValidParentheses(s string) bool {
+	// Usar un slice como stack
+	stack := make([]rune, 0)
+
+	// Map de apertura -> cierre correspondiente
+	pairs := map[rune]rune{
+		'(': ')',
+		'{': '}',
+		'[': ']',
+	}
+
+	for _, ch := range s {
+		if closing, isOpening := pairs[ch]; isOpening {
+			// Es un caracter de apertura: pushear el cierre esperado
+			stack = append(stack, closing)
+		} else {
+			// Es un caracter de cierre: verificar que coincida
+			if len(stack) == 0 || stack[len(stack)-1] != ch {
+				return false
+			}
+			stack = stack[:len(stack)-1] // pop
+		}
+	}
+
+	// El stack debe estar vacio al final
+	return len(stack) == 0
+}
+
+// --- MergeSortedArrays ---
+// Algoritmo: two pointers. Comparar los elementos de ambos arrays y agregar el menor.
+// Es el merge step de merge sort.
+//
+// Complejidad temporal: O(n + m) donde n = len(a), m = len(b)
+// Complejidad espacial: O(n + m) para el resultado
+func MergeSortedArrays(a, b []int) []int {
+	result := make([]int, 0, len(a)+len(b))
+	i, j := 0, 0
+
+	for i < len(a) && j < len(b) {
+		if a[i] <= b[j] {
+			result = append(result, a[i])
+			i++
+		} else {
+			result = append(result, b[j])
+			j++
+		}
+	}
+
+	// Agregar los elementos restantes
+	result = append(result, a[i:]...)
+	result = append(result, b[j:]...)
+
+	return result
+}
+
+// --- ReverseLinkedList ---
+// Algoritmo: iterativo con tres punteros (prev, current, next).
+// En cada paso, revertimos el puntero Next del nodo actual.
+//
+// Complejidad temporal: O(n) — una pasada por la lista
+// Complejidad espacial: O(1) — solo usamos punteros auxiliares
+func ReverseLinkedList(head *ListNode) *ListNode {
+	var prev *ListNode
+	current := head
+
+	for current != nil {
+		next := current.Next // guardar referencia al siguiente
+		current.Next = prev  // revertir el puntero
+		prev = current       // avanzar prev
+		current = next       // avanzar current
+	}
+
+	return prev // prev es la nueva head
+}
+
+// --- MaxSubarraySum ---
+// Algoritmo de Kadane: mantener la suma del subarray actual.
+// Si la suma se vuelve negativa, reiniciar (empezar un nuevo subarray).
+// Rastrear el maximo global.
+//
+// Complejidad temporal: O(n) — una pasada
+// Complejidad espacial: O(1) — solo variables auxiliares
+func MaxSubarraySum(nums []int) int {
+	maxSum := nums[0]
+	currentSum := nums[0]
+
+	for _, num := range nums[1:] {
+		// Si currentSum + num es menor que num solo,
+		// es mejor empezar un nuevo subarray desde num.
+		if currentSum+num > num {
+			currentSum += num
+		} else {
+			currentSum = num
+		}
+
+		if currentSum > maxSum {
+			maxSum = currentSum
+		}
+	}
+
+	return maxSum
+}
+
+// --- BinarySearch ---
+// Algoritmo clasico: dividir el rango de busqueda a la mitad en cada iteracion.
+//
+// Complejidad temporal: O(log n)
+// Complejidad espacial: O(1)
+func BinarySearch(nums []int, target int) int {
+	lo, hi := 0, len(nums)-1
+
+	for lo <= hi {
+		mid := lo + (hi-lo)/2 // evitar overflow (mejor que (lo+hi)/2)
+
+		switch {
+		case nums[mid] == target:
+			return mid
+		case nums[mid] < target:
+			lo = mid + 1
+		default:
+			hi = mid - 1
+		}
+	}
+
+	return -1
+}
+
+// --- LevelOrderTraversal ---
+// Algoritmo: BFS usando una queue. Procesar todos los nodos del nivel actual
+// antes de pasar al siguiente nivel.
+//
+// Complejidad temporal: O(n) — visitamos cada nodo exactamente una vez
+// Complejidad espacial: O(n) — la queue puede contener hasta n/2 nodos
+// (el nivel mas ancho de un arbol binario completo)
+func LevelOrderTraversal(root *TreeNode) [][]int {
+	if root == nil {
+		return nil
+	}
+
+	var result [][]int
+	queue := []*TreeNode{root}
+
+	for len(queue) > 0 {
+		levelSize := len(queue)
+		level := make([]int, 0, levelSize)
+
+		for i := 0; i < levelSize; i++ {
+			node := queue[0]
+			queue = queue[1:]
+
+			level = append(level, node.Val)
+
+			if node.Left != nil {
+				queue = append(queue, node.Left)
+			}
+			if node.Right != nil {
+				queue = append(queue, node.Right)
+			}
+		}
+
+		result = append(result, level)
+	}
+
+	return result
+}
+
+// --- IsAnagram ---
+// Algoritmo: contar la frecuencia de cada caracter en ambos strings.
+// Si las frecuencias son iguales, son anagramas.
+//
+// Complejidad temporal: O(n) donde n = longitud maxima de los strings
+// Complejidad espacial: O(k) donde k = numero de caracteres unicos (maximo 26 para ASCII lowercase)
+//
+// Nota: usamos un map en lugar de un array de 26 posiciones para soportar
+// cualquier caracter Unicode, lo cual es mas idiomatico en Go.
+func IsAnagram(s, t string) bool {
+	if len(s) != len(t) {
+		return false
+	}
+
+	freq := make(map[rune]int)
+
+	// Incrementar para s, decrementar para t
+	for _, ch := range s {
+		freq[ch]++
+	}
+	for _, ch := range t {
+		freq[ch]--
+	}
+
+	// Verificar que todas las frecuencias sean 0
+	for _, count := range freq {
+		if count != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+// --- TopKFrequent ---
+// Algoritmo: bucket sort.
+// 1. Contar frecuencias con un hash map.
+// 2. Crear buckets donde el indice es la frecuencia.
+// 3. Recorrer los buckets de mayor a menor frecuencia, tomando los primeros k elementos.
+//
+// Complejidad temporal: O(n) — contar + bucket sort son lineales
+// Complejidad espacial: O(n) — para el map de frecuencias y los buckets
+//
+// Alternativa: usar un min-heap de tamano k para O(n log k). Pero bucket sort
+// es mas simple y eficiente para este problema.
+func TopKFrequent(nums []int, k int) []int {
+	// Paso 1: contar frecuencias
+	freq := make(map[int]int)
+	for _, num := range nums {
+		freq[num]++
+	}
+
+	// Paso 2: crear un slice de pares y ordenar por frecuencia descendente
+	// (alternativa al bucket sort que es mas clara)
+	type pair struct {
+		num  int
+		freq int
+	}
+	pairs := make([]pair, 0, len(freq))
+	for num, f := range freq {
+		pairs = append(pairs, pair{num, f})
+	}
+
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].freq > pairs[j].freq
+	})
+
+	// Paso 3: tomar los primeros k
+	result := make([]int, k)
+	for i := 0; i < k; i++ {
+		result[i] = pairs[i].num
+	}
+
+	return result
+}

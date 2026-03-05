@@ -1,0 +1,51 @@
+id,date,category,product,quantity,price,region
+1,2024-01-15,Electronics,Laptop,2,999.99,EU
+2,2024-01-15,Food,Coffee,100,4.50,US
+3,2024-01-16,Clothing,T-Shirt,50,19.99,LATAM
+4,2024-01-16,Books,Go Programming,10,45.00,EU
+5,2024-01-17,Software,IDE License,25,99.00,US
+6,2024-01-17,Electronics,Keyboard,80,75.50,ASIA
+7,2024-01-18,Food,Tea,200,3.25,ASIA
+8,2024-01-18,Clothing,Jacket,15,120.00,EU
+9,2024-01-19,Books,Clean Code,30,40.00,US
+10,2024-01-19,Software,Cloud Storage,60,12.99,LATAM
+11,2024-01-20,Electronics,Mouse,120,25.00,US
+12,2024-01-20,Food,Chocolate,300,2.99,EU
+13,2024-01-21,Clothing,Sneakers,40,89.99,ASIA
+14,2024-01-21,Books,Design Patterns,20,55.00,LATAM
+15,2024-01-22,Software,Antivirus,45,39.99,EU
+16,2024-01-22,Electronics,Monitor,8,450.00,US
+17,2024-01-23,Food,Olive Oil,75,8.99,EU
+18,2024-01-23,Clothing,Hat,90,15.00,LATAM
+19,2024-01-24,Books,Algorithms,12,60.00,ASIA
+20,2024-01-24,Software,VPN,100,9.99,US
+21,2024-01-25,Electronics,Webcam,35,65.00,LATAM
+22,2024-01-25,Food,Rice,500,1.50,ASIA
+23,2024-01-26,Clothing,Scarf,60,22.00,EU
+24,2024-01-26,Books,Concurrency in Go,18,50.00,US
+25,2024-01-27,Software,Photo Editor,30,29.99,ASIA
+26,2024-01-27,Electronics,Headphones,55,150.00,EU
+27,2024-01-28,Food,Pasta,180,2.00,LATAM
+28,2024-01-28,Clothing,Gloves,70,18.50,US
+29,2024-01-29,Books,Refactoring,15,48.00,EU
+30,2024-01-29,Software,Music Player,80,4.99,LATAM
+31,2024-01-30,Electronics,USB Hub,100,30.00,ASIA
+32,2024-01-30,Food,Honey,40,12.00,EU
+33,2024-01-31,Clothing,Belt,45,25.00,US
+34,2024-01-31,Books,System Design,22,52.00,ASIA
+35,2024-02-01,Software,Task Manager,55,14.99,EU
+36,2024-02-01,Electronics,Tablet,5,599.99,LATAM
+37,2024-02-02,Food,Cheese,90,6.75,EU
+38,2024-02-02,Clothing,Socks,200,5.99,ASIA
+39,2024-02-03,Books,Networking,8,42.00,US
+40,2024-02-03,Software,Code Editor,70,0.00,EU
+41,2024-02-04,Electronics,Charger,150,20.00,US
+42,2024-02-04,Food,Juice,110,3.50,LATAM
+43,2024-02-05,Clothing,Dress,25,75.00,EU
+44,2024-02-05,Books,Database Internals,14,58.00,LATAM
+45,2024-02-06,Software,Backup Tool,40,24.99,ASIA
+46,2024-02-06,Electronics,SSD,20,120.00,EU
+47,2024-02-07,Food,Nuts,85,9.50,US
+48,2024-02-07,Clothing,Coat,10,200.00,LATAM
+49,2024-02-08,Books,Compilers,6,70.00,EU
+50,2024-02-08,Software,Spreadsheet,35,19.99,US

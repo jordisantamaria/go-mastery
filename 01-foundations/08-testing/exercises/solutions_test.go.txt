@@ -1,0 +1,221 @@
+// SOLUCIONES — NO mires hasta haber intentado resolver los ejercicios!
+// Renombra este archivo a solutions_test.go y borra exercises_test.go para testear.
+
+package exercises
+
+import (
+	"errors"
+	"testing"
+)
+
+// --- Mock para StringStore ---
+
+type mockStringStore struct {
+	data map[string]string
+}
+
+func newMockStore() *mockStringStore {
+	return &mockStringStore{data: make(map[string]string)}
+}
+
+func (m *mockStringStore) Get(key string) (string, error) {
+	val, ok := m.data[key]
+	if !ok {
+		return "", ErrNotFound
+	}
+	return val, nil
+}
+
+func (m *mockStringStore) Set(key string, value string) error {
+	m.data[key] = value
+	return nil
+}
+
+// --- Helper ---
+
+func assertError(t *testing.T, err error, target error) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("expected error wrapping %v, got nil", target)
+	}
+	if !errors.Is(err, target) {
+		t.Errorf("expected error wrapping %v, got %v", target, err)
+	}
+}
+
+// --- Tests ---
+
+func TestFactorial(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   int
+		want    int
+		wantErr error
+	}{
+		{"zero", 0, 1, nil},
+		{"one", 1, 1, nil},
+		{"five", 5, 120, nil},
+		{"ten", 10, 3628800, nil},
+		{"negative", -1, 0, ErrNegative},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Factorial(tt.input)
+
+			if tt.wantErr != nil {
+				assertError(t, err, tt.wantErr)
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("Factorial(%d) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPalindrome(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"racecar", true},
+		{"hello", false},
+		{"Madam", true},
+		{"", true},
+		{"a", true},
+		{"ab", false},
+		{"Was it a car or a cat I saw", false}, // tiene espacios
+		{"abba", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := Palindrome(tt.input)
+			if got != tt.want {
+				t.Errorf("Palindrome(%q) = %t, want %t", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTitleCase(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"basic", "hello world", "Hello World"},
+		{"empty", "", ""},
+		{"already upper", "HELLO", "Hello"},
+		{"extra spaces", "  extra   spaces  ", "Extra Spaces"},
+		{"single word", "go", "Go"},
+		{"mixed case", "hElLo WoRlD", "Hello World"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := TitleCase(tt.input)
+			if got != tt.want {
+				t.Errorf("TitleCase(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCacheServiceGetOrDefault(t *testing.T) {
+	store := newMockStore()
+	store.data["existing"] = "value1"
+	service := NewCacheService(store)
+
+	t.Run("returns value when exists", func(t *testing.T) {
+		got := service.GetOrDefault("existing", "default")
+		if got != "value1" {
+			t.Errorf("got %q, want value1", got)
+		}
+	})
+
+	t.Run("returns default when not exists", func(t *testing.T) {
+		got := service.GetOrDefault("missing", "fallback")
+		if got != "fallback" {
+			t.Errorf("got %q, want fallback", got)
+		}
+	})
+}
+
+func TestCacheServiceSetIfNotExists(t *testing.T) {
+	t.Run("sets when key not exists", func(t *testing.T) {
+		store := newMockStore()
+		service := NewCacheService(store)
+
+		set, err := service.SetIfNotExists("new-key", "new-value")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !set {
+			t.Error("expected SetIfNotExists to return true")
+		}
+		if store.data["new-key"] != "new-value" {
+			t.Error("value was not stored")
+		}
+	})
+
+	t.Run("does not set when key exists", func(t *testing.T) {
+		store := newMockStore()
+		store.data["existing"] = "old-value"
+		service := NewCacheService(store)
+
+		set, err := service.SetIfNotExists("existing", "new-value")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if set {
+			t.Error("expected SetIfNotExists to return false")
+		}
+		if store.data["existing"] != "old-value" {
+			t.Error("existing value was overwritten")
+		}
+	})
+}
+
+// --- Benchmark ---
+
+func BenchmarkFactorial(b *testing.B) {
+	for b.Loop() {
+		Factorial(20)
+	}
+}
+
+// --- Fuzz ---
+
+func FuzzPalindrome(f *testing.F) {
+	f.Add("racecar")
+	f.Add("hello")
+	f.Add("")
+	f.Add("a")
+
+	f.Fuzz(func(t *testing.T, s string) {
+		// Propiedad: Palindrome no debe hacer panic con ningun input
+		result := Palindrome(s)
+
+		// Si es palindromo, invertirlo deberia dar el mismo string (lowercased)
+		if result {
+			reversed := reverseString(s)
+			if !Palindrome(reversed) {
+				t.Errorf("Palindrome(%q)=true but Palindrome(reverse(%q))=false", s, s)
+			}
+		}
+	})
+}
+
+func reverseString(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}

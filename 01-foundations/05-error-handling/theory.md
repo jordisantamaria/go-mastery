@@ -1,8 +1,8 @@
 # 05 - Error Handling
 
-En Go, **los errores son valores**, no excepciones. No hay `try/catch`. Esto es una decision de diseno deliberada que fuerza al programador a manejar errores explicitamente.
+In Go, **errors are values**, not exceptions. There is no `try/catch`. This is a deliberate design decision that forces the programmer to handle errors explicitly.
 
-## La interface error
+## The error interface
 
 ```go
 type error interface {
@@ -10,11 +10,11 @@ type error interface {
 }
 ```
 
-Cualquier tipo que tenga un method `Error() string` es un error. Asi de simple.
+Any type that has an `Error() string` method is an error. That simple.
 
-## Creando errores
+## Creating errors
 
-### errors.New — errores simples
+### errors.New — simple errors
 
 ```go
 import "errors"
@@ -23,11 +23,11 @@ func validate(age int) error {
     if age < 0 {
         return errors.New("age cannot be negative")
     }
-    return nil  // nil = sin error
+    return nil  // nil = no error
 }
 ```
 
-### fmt.Errorf — errores con formato
+### fmt.Errorf — formatted errors
 
 ```go
 func validate(name string) error {
@@ -38,28 +38,28 @@ func validate(name string) error {
 }
 ```
 
-## El patron basico: if err != nil
+## The basic pattern: if err != nil
 
 ```go
 result, err := doSomething()
 if err != nil {
-    return err  // propagar el error
+    return err  // propagate the error
 }
-// usar result...
+// use result...
 ```
 
-> Veras `if err != nil` **cientos de veces** en cualquier proyecto Go. Es la forma idiomatica de manejar errores. No intentes evitarlo — abrazalo.
+> You will see `if err != nil` **hundreds of times** in any Go project. It is the idiomatic way to handle errors. Do not try to avoid it — embrace it.
 
-### Return early (el patron)
+### Return early (the pattern)
 
 ```go
-// MAL — anidacion innecesaria
+// BAD — unnecessary nesting
 func process(id int) error {
     user, err := getUser(id)
     if err == nil {
         orders, err := getOrders(user.ID)
         if err == nil {
-            // procesar...
+            // process...
             return nil
         }
         return err
@@ -67,7 +67,7 @@ func process(id int) error {
     return err
 }
 
-// BIEN — return early
+// GOOD — return early
 func process(id int) error {
     user, err := getUser(id)
     if err != nil {
@@ -79,33 +79,33 @@ func process(id int) error {
         return err
     }
 
-    // procesar...
+    // process...
     return nil
 }
 ```
 
 ## Error wrapping
 
-Desde Go 1.13, puedes **envolver** errores para anyadir contexto sin perder el error original:
+Since Go 1.13, you can **wrap** errors to add context without losing the original error:
 
 ```go
 func getUser(id int) (*User, error) {
     row := db.QueryRow("SELECT ...")
     if err := row.Scan(&user); err != nil {
         return nil, fmt.Errorf("getUser(%d): %w", id, err)
-        //                                    ^^ %w envuelve el error
+        //                                    ^^ %w wraps the error
     }
     return &user, nil
 }
 ```
 
-`%w` (wrap) es diferente de `%v`:
-- **`%w`**: envuelve el error — se puede desenvolver con `errors.Is`/`errors.As`
-- **`%v`**: solo formatea el mensaje — el error original se pierde
+`%w` (wrap) is different from `%v`:
+- **`%w`**: wraps the error — it can be unwrapped with `errors.Is`/`errors.As`
+- **`%v`**: only formats the message — the original error is lost
 
 ## Sentinel errors
 
-Errores predefinidos que se comparan por identidad:
+Predefined errors that are compared by identity:
 
 ```go
 var (
@@ -122,28 +122,28 @@ func getUser(id int) (*User, error) {
     return user, nil
 }
 
-// Verificar
+// Check
 err := getUser(42)
 if errors.Is(err, ErrNotFound) {
-    // manejar "no encontrado"
+    // handle "not found"
 }
 ```
 
-> Convencion: los sentinel errors empiezan con `Err` (ej: `ErrNotFound`, `io.EOF`).
+> Convention: sentinel errors start with `Err` (e.g., `ErrNotFound`, `io.EOF`).
 
-## errors.Is y errors.As
+## errors.Is and errors.As
 
-### errors.Is — comparar con sentinel error (a traves de wrapping)
+### errors.Is — compare with sentinel error (through wrapping)
 
 ```go
-// Funciona incluso si el error esta envuelto
+// Works even if the error is wrapped
 err := fmt.Errorf("database query: %w", ErrNotFound)
 
-errors.Is(err, ErrNotFound)  // true! — desenvuelve automaticamente
-err == ErrNotFound           // false — no es el mismo objeto
+errors.Is(err, ErrNotFound)  // true! — unwraps automatically
+err == ErrNotFound           // false — not the same object
 ```
 
-### errors.As — extraer un tipo de error especifico
+### errors.As — extract a specific error type
 
 ```go
 type ValidationError struct {
@@ -155,20 +155,20 @@ func (e *ValidationError) Error() string {
     return fmt.Sprintf("validation: %s - %s", e.Field, e.Message)
 }
 
-// Verificar y extraer
+// Check and extract
 var valErr *ValidationError
 if errors.As(err, &valErr) {
-    fmt.Println("Campo invalido:", valErr.Field)
-    fmt.Println("Mensaje:", valErr.Message)
+    fmt.Println("Invalid field:", valErr.Field)
+    fmt.Println("Message:", valErr.Message)
 }
 ```
 
-- `errors.Is`: **"es este error?"** — compara identidad
-- `errors.As`: **"es de este tipo?"** — extrae tipo concreto
+- `errors.Is`: **"is this error?"** — compares identity
+- `errors.As`: **"is it of this type?"** — extracts concrete type
 
 ## Custom error types
 
-Para errores con informacion extra:
+For errors with extra information:
 
 ```go
 type HTTPError struct {
@@ -196,17 +196,17 @@ func fetchData(url string) error {
     return nil
 }
 
-// Uso
+// Usage
 err := fetchData("https://api.example.com/data")
 var httpErr *HTTPError
 if errors.As(err, &httpErr) {
     if httpErr.StatusCode == 404 {
-        // manejar not found
+        // handle not found
     }
 }
 ```
 
-## Patron: error handling en multiples operaciones
+## Pattern: error handling across multiple operations
 
 ```go
 func processFile(path string) error {
@@ -233,24 +233,24 @@ func processFile(path string) error {
 }
 ```
 
-Cada paso anyadir contexto con `%w` crea un "stack trace" de errores:
-`"save: validate: invalid format"` — sabes exactamente donde fallo.
+Each step adding context with `%w` creates an error "stack trace":
+`"save: validate: invalid format"` — you know exactly where it failed.
 
 ## panic vs error
 
 | | `error` | `panic` |
 |---|---|---|
-| **Uso** | Situaciones esperadas | Bugs irrecuperables |
-| **Ejemplos** | Archivo no existe, input invalido | Indice fuera de rango, nil pointer |
-| **Se puede recuperar?** | Si, con if err != nil | Si, con recover() (pero no se recomienda) |
-| **Flow** | Se propaga via return | Desenrolla todo el call stack |
+| **Usage** | Expected situations | Unrecoverable bugs |
+| **Examples** | File does not exist, invalid input | Index out of range, nil pointer |
+| **Recoverable?** | Yes, with if err != nil | Yes, with recover() (but not recommended) |
+| **Flow** | Propagates via return | Unwinds the entire call stack |
 
-> **Regla**: si puedes anticipar el error, usa `error`. `panic` es para bugs del programador o estado corrupto imposible.
+> **Rule**: if you can anticipate the error, use `error`. `panic` is for programmer bugs or impossible corrupted state.
 
-### panic en la practica
+### panic in practice
 
 ```go
-// Aceptable: inicializacion que DEBE funcionar
+// Acceptable: initialization that MUST work
 func mustCompile(pattern string) *regexp.Regexp {
     re, err := regexp.Compile(pattern)
     if err != nil {
@@ -259,26 +259,26 @@ func mustCompile(pattern string) *regexp.Regexp {
     return re
 }
 
-// Aceptable: funciones Must* en la stdlib (template.Must, regexp.MustCompile)
+// Acceptable: Must* functions in the stdlib (template.Must, regexp.MustCompile)
 var emailRegex = regexp.MustCompile(`^[a-z]+@[a-z]+\.[a-z]+$`)
 ```
 
-## Preguntas de entrevista frecuentes
+## Common interview questions
 
-1. **Por que Go no tiene excepciones?**
-   Para forzar el manejo explicito de errores. Las excepciones crean flujos de control invisibles y hacen dificil saber que puede fallar. En Go, cada error es visible en la firma de la funcion.
+1. **Why doesn't Go have exceptions?**
+   To force explicit error handling. Exceptions create invisible control flows and make it hard to know what can fail. In Go, every error is visible in the function signature.
 
-2. **Diferencia entre errors.Is y errors.As?**
-   `errors.Is` compara identidad (sentinel errors). `errors.As` extrae un tipo concreto. Ambos funcionan a traves de error wrapping.
+2. **Difference between errors.Is and errors.As?**
+   `errors.Is` compares identity (sentinel errors). `errors.As` extracts a concrete type. Both work through error wrapping.
 
-3. **Que es error wrapping y por que importa?**
-   `fmt.Errorf("context: %w", err)` envuelve un error anyadiendo contexto. Permite saber DONDE fallo (via el contexto) y QUE fallo (via errors.Is/As en el error original).
+3. **What is error wrapping and why does it matter?**
+   `fmt.Errorf("context: %w", err)` wraps an error adding context. It allows knowing WHERE it failed (via context) and WHAT failed (via errors.Is/As on the original error).
 
-4. **Cuando usarias panic?**
-   Solo para bugs del programador (estado imposible). Nunca para errores de I/O, validacion, o input de usuario. Excepciones: funciones `Must*` que se ejecutan en init.
+4. **When would you use panic?**
+   Only for programmer bugs (impossible state). Never for I/O errors, validation, or user input. Exceptions: `Must*` functions that run during init.
 
-5. **Cual es el problema del error handling verboso en Go?**
-   `if err != nil` se repite mucho, lo que puede parecer excesivo. Pero esta verbosidad es deliberada: hace explicito que puede fallar y fuerza a decidir como manejarlo. El tradeoff es claridad sobre brevedad.
+5. **What is the problem with verbose error handling in Go?**
+   `if err != nil` is repeated a lot, which can seem excessive. But this verbosity is deliberate: it makes explicit what can fail and forces you to decide how to handle it. The tradeoff is clarity over brevity.
 
-6. **Como harias un error que contiene informacion adicional?**
-   Creando un custom error type (struct con Error() method). Puedes incluir campos como StatusCode, Field, Timestamp, etc. Se extrae con errors.As.
+6. **How would you make an error that contains additional information?**
+   By creating a custom error type (struct with Error() method). You can include fields like StatusCode, Field, Timestamp, etc. It is extracted with errors.As.

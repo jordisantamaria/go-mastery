@@ -1,11 +1,11 @@
 # 07 - Generics
 
-Generics (Go 1.18+) permiten escribir funciones y tipos que trabajan con **multiples tipos** sin perder type safety. Antes de generics, tenias que usar `interface{}` (perdiendo seguridad) o duplicar codigo.
+Generics (Go 1.18+) allow writing functions and types that work with **multiple types** without losing type safety. Before generics, you had to use `interface{}` (losing safety) or duplicate code.
 
-## Antes vs Despues de generics
+## Before vs After generics
 
 ```go
-// ANTES: duplicar o usar interface{}
+// BEFORE: duplicate or use interface{}
 func SumInts(nums []int) int {
     total := 0
     for _, n := range nums {
@@ -22,7 +22,7 @@ func SumFloat64s(nums []float64) float64 {
     return total
 }
 
-// DESPUES: una sola funcion generica
+// AFTER: a single generic function
 func Sum[T int | float64](nums []T) T {
     var total T
     for _, n := range nums {
@@ -35,9 +35,9 @@ Sum([]int{1, 2, 3})         // 6
 Sum([]float64{1.1, 2.2})    // 3.3
 ```
 
-## Sintaxis basica
+## Basic syntax
 
-### Funcion generica
+### Generic function
 
 ```go
 func FunctionName[T constraint](param T) T {
@@ -45,10 +45,10 @@ func FunctionName[T constraint](param T) T {
 }
 ```
 
-- **`[T constraint]`** — type parameter `T` con un constraint
-- `T` se puede usar como tipo de parametros, return, y variables locales
+- **`[T constraint]`** — type parameter `T` with a constraint
+- `T` can be used as the type for parameters, return values, and local variables
 
-### Tipo generico
+### Generic type
 
 ```go
 type Stack[T any] struct {
@@ -69,7 +69,7 @@ func (s *Stack[T]) Pop() (T, bool) {
     return item, true
 }
 
-// Uso
+// Usage
 intStack := Stack[int]{}
 intStack.Push(1)
 intStack.Push(2)
@@ -80,19 +80,19 @@ strStack.Push("hello")
 
 ## Constraints
 
-Un constraint define que operaciones puede hacer el tipo generico.
+A constraint defines what operations the generic type can perform.
 
-### Constraints built-in
+### Built-in constraints
 
 ```go
-any         // cualquier tipo (alias de interface{})
-comparable  // tipos que soportan == y != (basicos, structs de comparables, etc.)
+any         // any type (alias for interface{})
+comparable  // types that support == and != (basic types, structs of comparables, etc.)
 ```
 
-### Constraints como interfaces
+### Constraints as interfaces
 
 ```go
-// Constraint que requiere un method
+// Constraint that requires a method
 type Stringer interface {
     String() string
 }
@@ -103,7 +103,7 @@ func PrintAll[T Stringer](items []T) {
     }
 }
 
-// Constraint con union de tipos (Go 1.18+)
+// Constraint with type union (Go 1.18+)
 type Number interface {
     int | int8 | int16 | int32 | int64 |
     float32 | float64
@@ -118,18 +118,18 @@ func Sum[T Number](nums []T) T {
 }
 ```
 
-### El operador ~ (underlying type)
+### The ~ operator (underlying type)
 
 ```go
 type Celsius float64
 type Fahrenheit float64
 
-// Sin ~: Celsius y Fahrenheit NO cumplen el constraint
+// Without ~: Celsius and Fahrenheit do NOT satisfy the constraint
 type StrictFloat interface {
     float64
 }
 
-// Con ~: acepta cualquier tipo cuyo underlying type sea float64
+// With ~: accepts any type whose underlying type is float64
 type FlexFloat interface {
     ~float64
 }
@@ -139,17 +139,17 @@ func Double[T FlexFloat](v T) T {
 }
 
 var temp Celsius = 36.6
-Double(temp) // OK con ~float64, error sin ~
+Double(temp) // OK with ~float64, error without ~
 ```
 
-> `~T` significa "cualquier tipo cuyo tipo subyacente sea T". Es necesario para aceptar custom types como `Celsius`.
+> `~T` means "any type whose underlying type is T". It is necessary to accept custom types like `Celsius`.
 
-### cmp.Ordered (constraint de la stdlib)
+### cmp.Ordered (stdlib constraint)
 
 ```go
 import "cmp"
 
-// cmp.Ordered incluye todos los tipos que soportan <, >, <=, >=
+// cmp.Ordered includes all types that support <, >, <=, >=
 func Max[T cmp.Ordered](a, b T) T {
     if a > b {
         return a
@@ -161,7 +161,7 @@ Max(3, 5)       // 5
 Max("abc", "z") // "z"
 ```
 
-## Patrones comunes
+## Common patterns
 
 ### Map, Filter, Reduce
 
@@ -192,7 +192,7 @@ func Reduce[T any, U any](items []T, initial U, fn func(U, T) U) U {
     return acc
 }
 
-// Uso
+// Usage
 names := []string{"Alice", "Bob", "Charlie"}
 lengths := Map(names, func(s string) int { return len(s) })
 // [5, 3, 7]
@@ -220,7 +220,7 @@ Contains([]int{1, 2, 3}, 2)      // true
 Contains([]string{"a", "b"}, "c") // false
 ```
 
-### Keys / Values de un map
+### Keys / Values of a map
 
 ```go
 func Keys[K comparable, V any](m map[K]V) []K {
@@ -265,71 +265,71 @@ func (s *Set[T]) Len() int {
 }
 ```
 
-## Inferencia de tipos
+## Type inference
 
-Go infiere los type parameters en la mayoria de casos:
+Go infers type parameters in most cases:
 
 ```go
-// No necesitas especificar el tipo
-Max(3, 5)          // infiere Max[int]
-Contains(nums, 42) // infiere Contains[int]
+// You don't need to specify the type
+Max(3, 5)          // infers Max[int]
+Contains(nums, 42) // infers Contains[int]
 
-// A veces necesitas ser explicito
+// Sometimes you need to be explicit
 result := Map[string, int](names, func(s string) int { return len(s) })
 ```
 
-## Cuando usar generics (y cuando NO)
+## When to use generics (and when NOT)
 
-### SI usar generics
+### DO use generics
 
-- **Funciones utility** que operan sobre slices, maps, channels de cualquier tipo
-- **Estructuras de datos** genericas: Stack, Queue, Set, LinkedList
-- **Algoritmos** que trabajan con tipos ordenables/comparables
-- Cuando estarias **duplicando codigo** identico para diferentes tipos
+- **Utility functions** that operate on slices, maps, channels of any type
+- **Generic data structures**: Stack, Queue, Set, LinkedList
+- **Algorithms** that work with ordered/comparable types
+- When you would be **duplicating identical code** for different types
 
-### NO usar generics
+### DO NOT use generics
 
-- **Cuando solo necesitas `interface{}`**: si la funcion no opera con el tipo (solo lo pasa), no necesitas generics
-- **Cuando hay 1-2 tipos**: es mas claro escribir funciones especificas
-- **Para polimorfismo de comportamiento**: usa interfaces clasicas (methods), no generics
-- **Prematuramente**: no generalices hasta que tengas al menos 3 usos concretos
+- **When you only need `interface{}`**: if the function does not operate on the type (just passes it through), you don't need generics
+- **When there are 1-2 types**: it is clearer to write specific functions
+- **For behavioral polymorphism**: use classic interfaces (methods), not generics
+- **Prematurely**: do not generalize until you have at least 3 concrete uses
 
 ```go
-// NO: sobrecomplicar por nada
+// NO: overcomplicating for nothing
 func PrintValue[T any](v T) { fmt.Println(v) }
-// Mejor: func PrintValue(v any) { fmt.Println(v) }
+// Better: func PrintValue(v any) { fmt.Println(v) }
 
-// SI: realmente necesitas type safety y evitar duplicacion
+// YES: you really need type safety and to avoid duplication
 func Min[T cmp.Ordered](a, b T) T { ... }
 ```
 
-## Limitaciones actuales
+## Current limitations
 
-1. **No method type parameters**: no puedes tener type parameters en methods individuales (solo en el tipo)
+1. **No method type parameters**: you cannot have type parameters on individual methods (only on the type)
    ```go
-   // NO compila
+   // Does NOT compile
    func (s *Stack) Map[U any](fn func(T) U) *Stack[U] { ... }
-   // Workaround: funcion libre
+   // Workaround: free function
    func MapStack[T, U any](s *Stack[T], fn func(T) U) *Stack[U] { ... }
    ```
 
-2. **No specialization**: no puedes tener implementaciones distintas para tipos especificos
+2. **No specialization**: you cannot have different implementations for specific types
 
-3. **No variadic type parameters**: no puedes tener `func F[T1, T2, T3... any](...)`
+3. **No variadic type parameters**: you cannot have `func F[T1, T2, T3... any](...)`
 
-## Preguntas de entrevista frecuentes
+## Common interview questions
 
-1. **Desde que version de Go existen generics?**
-   Go 1.18 (marzo 2022). Antes se usaba `interface{}` o code generation.
+1. **Since which Go version do generics exist?**
+   Go 1.18 (March 2022). Before that, `interface{}` or code generation was used.
 
-2. **Que es un constraint?**
-   Una interface que define que tipos pueden usarse como type parameter. Puede requerir methods (como interfaces normales) o tipos concretos con `|`.
+2. **What is a constraint?**
+   An interface that defines which types can be used as a type parameter. It can require methods (like normal interfaces) or concrete types with `|`.
 
-3. **Que hace el operador `~`?**
-   `~T` significa "cualquier tipo cuyo underlying type sea T". Necesario para aceptar custom types (como `type Celsius float64`).
+3. **What does the `~` operator do?**
+   `~T` means "any type whose underlying type is T". Necessary to accept custom types (like `type Celsius float64`).
 
-4. **Cuando NO usarias generics?**
-   Cuando solo operas con un tipo concreto, cuando `any` basta (no necesitas type safety), o cuando la abstraccion no simplifica el codigo. Los Go proverbs dicen "a little copying is better than a little dependency".
+4. **When would you NOT use generics?**
+   When you only work with one concrete type, when `any` suffices (you don't need type safety), or when the abstraction does not simplify the code. The Go proverbs say "a little copying is better than a little dependency".
 
-5. **Diferencia entre `any` constraint y `any` como tipo?**
-   `any` como constraint (`func F[T any]`) preserva type safety: el compilador sabe el tipo concreto. `any` como tipo (`func F(v any)`) pierde type safety: necesitas type assertions para operar.
+5. **Difference between `any` constraint and `any` as a type?**
+   `any` as a constraint (`func F[T any]`) preserves type safety: the compiler knows the concrete type. `any` as a type (`func F(v any)`) loses type safety: you need type assertions to operate.

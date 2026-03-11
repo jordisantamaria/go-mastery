@@ -1,72 +1,72 @@
 # Go Mastery
 
-Ruta de aprendizaje completa de Go: desde los fundamentos hasta microservicios en produccion.
+Complete Go learning path: from fundamentals to production microservices.
 
-Cada modulo combina **teoria**, **codigo ejecutable** y **ejercicios con tests** para verificar las soluciones.
+Each module combines **theory**, **executable code**, and **exercises with tests** to verify the solutions.
 
 ## Roadmap
 
 ```
-Semana 1-2    Fundamentos + Proyecto 1 (CLI)
-Semana 3-4    Concurrencia + Testing + Interview Prep
-Semana 5-6    Proyecto 2 (REST API) + Standard Library
-Semana 7-8    Proyecto 3 (Pipeline) + Puzzles de concurrencia
-Semana 9-10   Proyecto 4 (Microservicios) + System Design
+Week 1-2     Fundamentals + Project 1 (CLI)
+Week 3-4     Concurrency + Testing + Interview Prep
+Week 5-6     Project 2 (REST API) + Standard Library
+Week 7-8     Project 3 (Pipeline) + Concurrency Puzzles
+Week 9-10    Project 4 (Microservices) + System Design
 ```
 
-## Estructura
+## Structure
 
 ### 01 - Foundations
 
-Teoria + ejercicios cortos con tests. Cada modulo tiene:
-- `theory.md` — Explicacion concisa con ejemplos
-- `examples/` — Codigo comentado ejecutable (`go run`)
-- `exercises/` — Retos con tests (`go test`)
+Theory + short exercises with tests. Each module has:
+- `theory.md` — Concise explanation with examples
+- `examples/` — Commented executable code (`go run`)
+- `exercises/` — Challenges with tests (`go test`)
 
-| # | Modulo | Temas clave |
-|---|--------|-------------|
-| 01 | [Syntax & Types](01-foundations/01-syntax-types/) | Variables, tipos, zero values, slices, maps, punteros |
+| # | Module | Key Topics |
+|---|--------|------------|
+| 01 | [Syntax & Types](01-foundations/01-syntax-types/) | Variables, types, zero values, slices, maps, pointers |
 | 02 | [Control Flow](01-foundations/02-control-flow/) | if/else, switch, for, range, defer, labels |
 | 03 | [Functions & Closures](01-foundations/03-functions-closures/) | Multiple returns, variadic, closures, first-class functions |
-| 04 | [Structs & Interfaces](01-foundations/04-structs-interfaces/) | Composicion, embedding, interfaces implicitas, polimorfismo |
+| 04 | [Structs & Interfaces](01-foundations/04-structs-interfaces/) | Composition, embedding, implicit interfaces, polymorphism |
 | 05 | [Error Handling](01-foundations/05-error-handling/) | error interface, sentinel errors, wrapping, errors.Is/As |
 | 06 | [Concurrency](01-foundations/06-concurrency/) | Goroutines, channels, select, sync, context, errgroup |
-| 07 | [Generics](01-foundations/07-generics/) | Type parameters, constraints, cuando usarlos (y cuando no) |
-| 08 | [Testing](01-foundations/08-testing/) | Table-driven tests, benchmarks, fuzzing, mocks con interfaces |
+| 07 | [Generics](01-foundations/07-generics/) | Type parameters, constraints, when to use them (and when not to) |
+| 08 | [Testing](01-foundations/08-testing/) | Table-driven tests, benchmarks, fuzzing, mocks with interfaces |
 | 09 | [Stdlib Deep Dive](01-foundations/09-stdlib-deep-dive/) | net/http, io, context, encoding/json, os, flag |
 
 ### 02 - Interview Prep
 
-| Seccion | Contenido |
-|---------|-----------|
+| Section | Content |
+|---------|---------|
 | [Language Internals](02-interview-prep/language-internals/) | GC, scheduler GMP, memory model, escape analysis, stack vs heap |
-| [Concurrency Puzzles](02-interview-prep/concurrency-puzzles/) | Race conditions, deadlocks, patrones clasicos |
-| [System Design](02-interview-prep/system-design/) | Patrones de diseno en Go para system design interviews |
-| [Coding Challenges](02-interview-prep/coding-challenges/) | Problemas clasicos resueltos de forma idiomatica en Go |
+| [Concurrency Puzzles](02-interview-prep/concurrency-puzzles/) | Race conditions, deadlocks, classic patterns |
+| [System Design](02-interview-prep/system-design/) | Go design patterns for system design interviews |
+| [Coding Challenges](02-interview-prep/coding-challenges/) | Classic problems solved idiomatically in Go |
 
 ### 03 - Projects (Portfolio)
 
-| # | Proyecto | Demuestra | Stack |
-|---|----------|-----------|-------|
-| 01 | [CLI Task Manager](03-projects/01-cli-tool/) | Go idiomatico, testing, packaging | Cobra, BoltDB |
+| # | Project | Demonstrates | Stack |
+|---|---------|-------------|-------|
+| 01 | [CLI Task Manager](03-projects/01-cli-tool/) | Idiomatic Go, testing, packaging | Cobra, BoltDB |
 | 02 | [Finance Tracker API](03-projects/02-rest-api/) | Clean architecture, middleware, auth | Chi, PostgreSQL, JWT |
 | 03 | [Data Pipeline](03-projects/03-concurrent-pipeline/) | Goroutines, channels, fan-out/fan-in | Workers, rate limiting |
 | 04 | [Microservices Platform](03-projects/04-microservices/) | Distributed systems, observability | gRPC, Docker, Prometheus |
 
-## Como usar este repo
+## How to use this repo
 
 ```bash
-# Ejecutar un ejemplo
+# Run an example
 go run 01-foundations/01-syntax-types/examples/variables.go
 
-# Ejecutar los tests de un ejercicio
+# Run the tests for an exercise
 go test ./01-foundations/01-syntax-types/exercises/...
 
-# Ejecutar todos los tests
+# Run all tests
 go test ./...
 ```
 
-## Requisitos
+## Requirements
 
 - Go 1.21+ (`go version`)
-- Editor con soporte Go (VS Code + Go extension recomendado)
+- Editor with Go support (VS Code + Go extension recommended)

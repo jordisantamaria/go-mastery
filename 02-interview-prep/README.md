@@ -1,26 +1,26 @@
 # Interview Prep
 
-Material de preparacion para entrevistas tecnicas de Go.
+Preparation material for Go technical interviews.
 
-## Secciones
+## Sections
 
 ### [Language Internals](language-internals/)
-Preguntas sobre el runtime de Go: garbage collector, scheduler GMP model, memory model, escape analysis, stack vs heap allocation.
+Questions about the Go runtime: garbage collector, scheduler GMP model, memory model, escape analysis, stack vs heap allocation.
 
 ### [Concurrency Puzzles](concurrency-puzzles/)
-Ejercicios practicos de concurrencia: detectar race conditions, resolver deadlocks, implementar patrones clasicos.
+Practical concurrency exercises: detecting race conditions, solving deadlocks, implementing classic patterns.
 
 ### [System Design](system-design/)
-Como aplicar Go en problemas de system design: cuando elegir Go, patrones de microservicios, escalabilidad.
+How to apply Go in system design problems: when to choose Go, microservices patterns, scalability.
 
 ### [Coding Challenges](coding-challenges/)
-Problemas de algoritmos y estructuras de datos resueltos de forma idiomatica en Go (no "Java traducido a Go").
+Algorithm and data structure problems solved idiomatically in Go (not "Java translated to Go").
 
-## Como Usar
+## How to Use
 
-Recomendacion de estudio:
+Recommended study approach:
 
-1. **Language Internals**: leer la teoria y practicar explicando cada concepto en voz alta (como si estuvieras en una entrevista). Intentar responder las 17 preguntas sin mirar las respuestas.
-2. **Concurrency Puzzles**: para cada puzzle, primero analizar el codigo roto y encontrar el bug antes de leer la explicacion.
-3. **System Design**: estudiar los patrones y luego practicar las 5 preguntas de diseno en una pizarra o papel.
-4. **Coding Challenges**: implementar las soluciones en `challenges.go` y ejecutar `go test -v` para verificar.
+1. **Language Internals**: read the theory and practice explaining each concept out loud (as if you were in an interview). Try to answer the 17 questions without looking at the answers.
+2. **Concurrency Puzzles**: for each puzzle, first analyze the broken code and find the bug before reading the explanation.
+3. **System Design**: study the patterns and then practice the 5 design questions on a whiteboard or paper.
+4. **Coding Challenges**: implement the solutions in `challenges.go` and run `go test -v` to verify.

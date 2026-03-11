@@ -1,110 +1,110 @@
-# System Design — Preparacion con Go
+# System Design — Preparation with Go
 
-Guia de preparacion para entrevistas de system design enfocada en Go: cuando elegir Go, patrones de arquitectura, microservicios, escalabilidad, y preguntas de diseno con soluciones.
-
----
-
-## Tabla de Contenidos
-
-1. [Cuando Elegir Go](#cuando-elegir-go)
-2. [Patrones de Arquitectura en Go](#patrones-de-arquitectura-en-go)
-3. [Microservicios con Go](#microservicios-con-go)
-4. [Patrones de Escalabilidad](#patrones-de-escalabilidad)
-5. [Patrones de Base de Datos](#patrones-de-base-de-datos)
-6. [Observabilidad](#observabilidad)
-7. [Preguntas de System Design](#preguntas-de-system-design)
+Preparation guide for system design interviews focused on Go: when to choose Go, architecture patterns, microservices, scalability, and design questions with solutions.
 
 ---
 
-## Cuando Elegir Go
+## Table of Contents
 
-### Comparacion con Otros Lenguajes
+1. [When to Choose Go](#when-to-choose-go)
+2. [Architecture Patterns in Go](#architecture-patterns-in-go)
+3. [Microservices with Go](#microservices-with-go)
+4. [Scalability Patterns](#scalability-patterns)
+5. [Database Patterns](#database-patterns)
+6. [Observability](#observability)
+7. [System Design Questions](#system-design-questions)
 
-| Criterio | Go | Java | Python | Node.js | Rust |
+---
+
+## When to Choose Go
+
+### Comparison with Other Languages
+
+| Criterion | Go | Java | Python | Node.js | Rust |
 |---|---|---|---|---|---|
-| Concurrencia | Goroutines (excelente) | Threads + Virtual Threads | asyncio (limitado) | Event loop (single-thread) | async/await (excelente) |
-| Velocidad compilacion | Muy rapida (~segundos) | Lenta (minutos) | N/A (interpretado) | N/A (interpretado) | Muy lenta (minutos) |
-| Rendimiento runtime | Alto | Alto (JVM maduro) | Bajo | Medio | Muy alto (zero-cost abstractions) |
-| Tamano binario | Pequeno (estatico) | Grande (requiere JVM) | N/A | N/A (requiere Node) | Pequeno (estatico) |
-| Curva aprendizaje | Baja | Alta | Muy baja | Baja | Muy alta |
-| Ecosistema | Bueno (networking, CLI) | Enorme (enterprise) | Enorme (ML, scripting) | Grande (web) | Creciendo |
-| Gestion memoria | GC (pausas cortas) | GC (configurable) | GC | GC | Ownership (sin GC) |
-| Deploy | Un binario estatico | JAR/WAR + JVM | Interprete + deps | Node + deps | Un binario estatico |
+| Concurrency | Goroutines (excellent) | Threads + Virtual Threads | asyncio (limited) | Event loop (single-thread) | async/await (excellent) |
+| Compile speed | Very fast (~seconds) | Slow (minutes) | N/A (interpreted) | N/A (interpreted) | Very slow (minutes) |
+| Runtime performance | High | High (mature JVM) | Low | Medium | Very high (zero-cost abstractions) |
+| Binary size | Small (static) | Large (requires JVM) | N/A | N/A (requires Node) | Small (static) |
+| Learning curve | Low | High | Very low | Low | Very high |
+| Ecosystem | Good (networking, CLI) | Huge (enterprise) | Huge (ML, scripting) | Large (web) | Growing |
+| Memory management | GC (short pauses) | GC (configurable) | GC | GC | Ownership (no GC) |
+| Deployment | A single static binary | JAR/WAR + JVM | Interpreter + deps | Node + deps | A single static binary |
 
-### Fortalezas de Go
+### Go's Strengths
 
-1. **Concurrencia nativa**: goroutines y canales son ciudadanos de primera clase. Crear miles de goroutines es trivial y barato.
-2. **Compilacion rapida**: feedback loop extremadamente corto. Un proyecto grande compila en segundos.
-3. **Deployment simple**: un unico binario estatico sin dependencias. Ideal para contenedores (imagenes Docker de ~10MB con scratch/distroless).
-4. **Standard library excelente**: `net/http`, `encoding/json`, `crypto`, `testing` — se puede construir un servicio web completo sin dependencias externas.
-5. **Cross-compilation trivial**: `GOOS=linux GOARCH=amd64 go build` genera un binario para Linux desde macOS.
-6. **Performance predecible**: sin JIT warmup, sin GC pauses largos, sin runtime overhead significativo.
-7. **Tooling integrado**: `go fmt`, `go vet`, `go test`, `go build`, profiler (`pprof`), race detector.
+1. **Native concurrency**: goroutines and channels are first-class citizens. Creating thousands of goroutines is trivial and cheap.
+2. **Fast compilation**: extremely short feedback loop. A large project compiles in seconds.
+3. **Simple deployment**: a single static binary with no dependencies. Ideal for containers (Docker images of ~10MB with scratch/distroless).
+4. **Excellent standard library**: `net/http`, `encoding/json`, `crypto`, `testing` — you can build a complete web service without external dependencies.
+5. **Trivial cross-compilation**: `GOOS=linux GOARCH=amd64 go build` generates a Linux binary from macOS.
+6. **Predictable performance**: no JIT warmup, no long GC pauses, no significant runtime overhead.
+7. **Integrated tooling**: `go fmt`, `go vet`, `go test`, `go build`, profiler (`pprof`), race detector.
 
-### Debilidades de Go
+### Go's Weaknesses
 
-1. **Generics limitados**: anadidos en Go 1.18, pero aun sin metodos con type parameters, sin especializacion.
-2. **Sin enums reales**: se simulan con `iota` y tipos personalizados, pero sin exhaustive checking nativo.
-3. **Error handling verboso**: `if err != nil` repetitivo. Sin `try/catch`, sin `?` operator (como Rust).
-4. **Sin herencia**: composicion sobre herencia es el enfoque, pero puede ser verboso para jerarquias complejas.
-5. **Ecosistema mas pequeno**: menos librerias que Java/Python para dominios especificos (ML, data science).
-6. **Sin macros/metaprogramacion avanzada**: `go generate` existe pero es limitado comparado con macros de Rust o annotations de Java.
+1. **Limited generics**: added in Go 1.18, but still no methods with type parameters, no specialization.
+2. **No real enums**: simulated with `iota` and custom types, but no native exhaustive checking.
+3. **Verbose error handling**: repetitive `if err != nil`. No `try/catch`, no `?` operator (like Rust).
+4. **No inheritance**: composition over inheritance is the approach, but it can be verbose for complex hierarchies.
+5. **Smaller ecosystem**: fewer libraries than Java/Python for specific domains (ML, data science).
+6. **No macros/advanced metaprogramming**: `go generate` exists but is limited compared to Rust macros or Java annotations.
 
-### Go Es Ideal Para
+### Go Is Ideal For
 
-- **APIs y servicios web**: el paquete `net/http` es de produccion sin frameworks.
-- **Microservicios**: binarios pequenos, startup rapido, bajo consumo de memoria.
-- **CLI tools**: compilacion cruzada, binario unico, libreria `cobra`/`urfave/cli`.
-- **Infrastructure tools**: Docker, Kubernetes, Terraform, Prometheus — todos escritos en Go.
+- **APIs and web services**: the `net/http` package is production-ready without frameworks.
+- **Microservices**: small binaries, fast startup, low memory consumption.
+- **CLI tools**: cross-compilation, single binary, `cobra`/`urfave/cli` libraries.
+- **Infrastructure tools**: Docker, Kubernetes, Terraform, Prometheus — all written in Go.
 - **Network services**: proxies, load balancers, API gateways.
-- **Data pipelines**: procesamiento concurrente con goroutines y canales.
+- **Data pipelines**: concurrent processing with goroutines and channels.
 
-### Go NO Es Ideal Para
+### Go Is NOT Ideal For
 
-- **Machine Learning**: Python domina (TensorFlow, PyTorch).
-- **Aplicaciones de escritorio**: mejor Electron, Qt, o nativas.
-- **Sistemas de tiempo real estricto**: el GC introduce latencia no determinista (usar Rust/C).
-- **Scripting rapido**: Python es mas conciso para scripts de una vez.
+- **Machine Learning**: Python dominates (TensorFlow, PyTorch).
+- **Desktop applications**: better with Electron, Qt, or native frameworks.
+- **Strict real-time systems**: the GC introduces non-deterministic latency (use Rust/C).
+- **Quick scripting**: Python is more concise for one-off scripts.
 
 ---
 
-## Patrones de Arquitectura en Go
+## Architecture Patterns in Go
 
 ### Clean Architecture
 
-Organiza el codigo en capas concentricas con la regla de dependencia: las capas internas no conocen las externas.
+Organizes code in concentric layers with the dependency rule: inner layers do not know about outer ones.
 
 ```
 project/
 ├── cmd/
 │   └── api/
-│       └── main.go              # punto de entrada, wiring
+│       └── main.go              # entry point, wiring
 ├── internal/
-│   ├── domain/                   # entidades de negocio (sin dependencias)
+│   ├── domain/                   # business entities (no dependencies)
 │   │   ├── user.go
 │   │   └── order.go
-│   ├── usecase/                  # logica de negocio (depende de domain)
+│   ├── usecase/                  # business logic (depends on domain)
 │   │   ├── user_service.go
 │   │   └── order_service.go
-│   ├── adapter/                  # implementaciones (depende de domain)
+│   ├── adapter/                  # implementations (depends on domain)
 │   │   ├── postgres/
 │   │   │   ├── user_repo.go
 │   │   │   └── order_repo.go
 │   │   └── redis/
 │   │       └── cache.go
-│   └── port/                     # interfaces (definidas por quien las usa)
-│       ├── repository.go         # interfaces de repositorio
-│       └── cache.go              # interface de cache
-├── pkg/                          # librerias reutilizables
+│   └── port/                     # interfaces (defined by the consumer)
+│       ├── repository.go         # repository interfaces
+│       └── cache.go              # cache interface
+├── pkg/                          # reusable libraries
 │   └── httputil/
 └── go.mod
 ```
 
-**Principio clave en Go**: las interfaces se definen donde se **usan**, no donde se implementan.
+**Key principle in Go**: interfaces are defined where they are **used**, not where they are implemented.
 
 ```go
 // internal/port/repository.go
-// Las interfaces las define el CONSUMIDOR (usecase layer)
+// Interfaces are defined by the CONSUMER (usecase layer)
 type UserRepository interface {
     GetByID(ctx context.Context, id string) (*domain.User, error)
     Create(ctx context.Context, user *domain.User) error
@@ -112,7 +112,7 @@ type UserRepository interface {
 
 // internal/usecase/user_service.go
 type UserService struct {
-    repo port.UserRepository // depende de la interface, no de la implementacion
+    repo port.UserRepository // depends on the interface, not the implementation
 }
 
 func NewUserService(repo port.UserRepository) *UserService {
@@ -122,17 +122,17 @@ func NewUserService(repo port.UserRepository) *UserService {
 
 ### Hexagonal Architecture
 
-Similar a Clean Architecture pero enfatiza los "ports and adapters":
+Similar to Clean Architecture but emphasizes "ports and adapters":
 
-- **Ports**: interfaces que definen como el dominio interactua con el exterior.
-- **Adapters**: implementaciones concretas (HTTP handler, PostgreSQL repo, Redis cache).
-- **Driving adapters**: entran al dominio (HTTP handlers, CLI, gRPC).
-- **Driven adapters**: el dominio sale al exterior (databases, APIs externas, message queues).
+- **Ports**: interfaces that define how the domain interacts with the outside.
+- **Adapters**: concrete implementations (HTTP handler, PostgreSQL repo, Redis cache).
+- **Driving adapters**: enter the domain (HTTP handlers, CLI, gRPC).
+- **Driven adapters**: the domain reaches the outside (databases, external APIs, message queues).
 
 ### Repository Pattern
 
 ```go
-// El repositorio abstrae el acceso a datos
+// The repository abstracts data access
 type OrderRepository interface {
     FindByID(ctx context.Context, id uuid.UUID) (*Order, error)
     FindByUserID(ctx context.Context, userID uuid.UUID) ([]*Order, error)
@@ -140,7 +140,7 @@ type OrderRepository interface {
     Delete(ctx context.Context, id uuid.UUID) error
 }
 
-// Implementacion con PostgreSQL
+// PostgreSQL implementation
 type PostgresOrderRepository struct {
     db *sql.DB
 }
@@ -186,18 +186,18 @@ func NewOrderService(
 }
 
 func (s *OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest) (*Order, error) {
-    // Validacion
+    // Validation
     if err := req.Validate(); err != nil {
         return nil, fmt.Errorf("invalid request: %w", err)
     }
 
-    // Verificar que el usuario existe
+    // Verify that the user exists
     user, err := s.users.FindByID(ctx, req.UserID)
     if err != nil {
         return nil, fmt.Errorf("finding user: %w", err)
     }
 
-    // Logica de negocio
+    // Business logic
     order := &Order{
         ID:     uuid.New(),
         UserID: user.ID,
@@ -205,21 +205,21 @@ func (s *OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest) 
         Status: OrderStatusPending,
     }
 
-    // Persistir
+    // Persist
     if err := s.orders.Save(ctx, order); err != nil {
         return nil, fmt.Errorf("saving order: %w", err)
     }
 
-    // Publicar evento
+    // Publish event
     s.events.Publish(ctx, OrderCreatedEvent{OrderID: order.ID})
 
     return order, nil
 }
 ```
 
-### Dependency Injection Sin Frameworks
+### Dependency Injection Without Frameworks
 
-Go no necesita frameworks de DI — la inyeccion se hace manualmente en `main()`:
+Go does not need DI frameworks — injection is done manually in `main()`:
 
 ```go
 func main() {
@@ -257,34 +257,34 @@ func main() {
 }
 ```
 
-**Ventaja**: sin magia, sin reflection, sin annotations. El grafo de dependencias es explicito y verificable en compile time.
+**Advantage**: no magic, no reflection, no annotations. The dependency graph is explicit and verifiable at compile time.
 
 ---
 
-## Microservicios con Go
+## Microservices with Go
 
-### Definicion de Service Boundaries
+### Defining Service Boundaries
 
-Principios para dividir servicios:
+Principles for dividing services:
 
-1. **Bounded Context (DDD)**: cada servicio maneja un contexto de negocio claro.
-2. **Ownership de datos**: cada servicio es dueno de su base de datos.
-3. **Desacoplamiento**: los servicios se comunican por contratos, no por implementacion.
-4. **Tamano**: lo suficientemente grande para tener valor de negocio, lo suficientemente pequeno para que un equipo lo mantenga.
+1. **Bounded Context (DDD)**: each service handles a clear business context.
+2. **Data ownership**: each service owns its database.
+3. **Decoupling**: services communicate through contracts, not implementations.
+4. **Size**: large enough to have business value, small enough for a team to maintain.
 
-### Comunicacion entre Servicios
+### Inter-Service Communication
 
 #### REST (HTTP/JSON)
 ```go
-// Servidor
+// Server
 mux := http.NewServeMux()
 mux.HandleFunc("GET /api/users/{id}", getUserHandler)
 
-// Cliente
+// Client
 resp, err := http.Get(fmt.Sprintf("http://user-service/api/users/%s", id))
 ```
-- **Pros**: simple, universal, facil de debugear.
-- **Contras**: overhead de serializacion JSON, sin contrato tipado.
+- **Pros**: simple, universal, easy to debug.
+- **Cons**: JSON serialization overhead, no typed contract.
 
 #### gRPC (Protocol Buffers)
 ```protobuf
@@ -294,39 +294,39 @@ service UserService {
 }
 ```
 ```go
-// Cliente gRPC
+// gRPC client
 client := pb.NewUserServiceClient(conn)
 user, err := client.GetUser(ctx, &pb.GetUserRequest{Id: "123"})
 ```
-- **Pros**: tipado fuerte, eficiente (binary), streaming, generacion de codigo.
-- **Contras**: mas complejo de debugear, requiere tooling extra.
+- **Pros**: strong typing, efficient (binary), streaming, code generation.
+- **Cons**: harder to debug, requires extra tooling.
 
 #### Message Queues (NATS, RabbitMQ, Kafka)
 ```go
-// Productor
+// Producer
 nc.Publish("orders.created", orderJSON)
 
-// Consumidor
+// Consumer
 nc.Subscribe("orders.created", func(msg *nats.Msg) {
     var order Order
     json.Unmarshal(msg.Data, &order)
     processOrder(order)
 })
 ```
-- **Pros**: desacoplamiento temporal, resiliencia, event-driven.
-- **Contras**: complejidad operacional, eventual consistency.
+- **Pros**: temporal decoupling, resilience, event-driven.
+- **Cons**: operational complexity, eventual consistency.
 
-**Guia de eleccion:**
-| Caso | Protocolo |
+**Selection guide:**
+| Use Case | Protocol |
 |---|---|
-| Request-response sincronico | REST o gRPC |
-| Alta performance interna | gRPC |
-| Eventos asincronos | Message queues |
-| Notificaciones fire-and-forget | Message queues |
+| Synchronous request-response | REST or gRPC |
+| High internal performance | gRPC |
+| Asynchronous events | Message queues |
+| Fire-and-forget notifications | Message queues |
 
 ### Circuit Breaker Pattern
 
-Previene cascadas de fallos cuando un servicio downstream esta caido:
+Prevents failure cascades when a downstream service is down:
 
 ```go
 type CircuitBreaker struct {
@@ -341,9 +341,9 @@ type CircuitBreaker struct {
 type State int
 
 const (
-    StateClosed   State = iota // Funcionando normal
-    StateOpen                   // Rechazando requests (servicio caido)
-    StateHalfOpen              // Probando si se recupero
+    StateClosed   State = iota // Functioning normally
+    StateOpen                   // Rejecting requests (service down)
+    StateHalfOpen              // Testing if it recovered
 )
 
 func (cb *CircuitBreaker) Execute(fn func() error) error {
@@ -378,20 +378,20 @@ func (cb *CircuitBreaker) Execute(fn func() error) error {
 }
 ```
 
-En produccion, usar librerias como `sony/gobreaker` o `afex/hystrix-go`.
+In production, use libraries like `sony/gobreaker` or `afex/hystrix-go`.
 
-### Health Checks y Readiness Probes
+### Health Checks and Readiness Probes
 
 ```go
-// Liveness: el proceso esta vivo?
+// Liveness: is the process alive?
 mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusOK)
     w.Write([]byte("ok"))
 })
 
-// Readiness: puede recibir trafico?
+// Readiness: can it receive traffic?
 mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-    // Verificar dependencias criticas
+    // Check critical dependencies
     if err := db.PingContext(r.Context()); err != nil {
         http.Error(w, "database unavailable", http.StatusServiceUnavailable)
         return
@@ -405,7 +405,7 @@ mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 })
 ```
 
-Para Kubernetes:
+For Kubernetes:
 ```yaml
 livenessProbe:
   httpGet:
@@ -423,11 +423,11 @@ readinessProbe:
 
 ---
 
-## Patrones de Escalabilidad
+## Scalability Patterns
 
 ### Worker Pool Pattern
 
-Para procesar trabajo en paralelo con control de concurrencia:
+For processing work in parallel with concurrency control:
 
 ```go
 func WorkerPool[T any, R any](
@@ -474,11 +474,11 @@ type Result[T any] struct {
 
 ### Rate Limiting
 
-**Token Bucket** (el mas comun):
+**Token Bucket** (the most common):
 
 ```go
-// Usando el paquete estandar (golang.org/x/time/rate)
-limiter := rate.NewLimiter(rate.Limit(100), 10) // 100 req/s, burst de 10
+// Using the standard package (golang.org/x/time/rate)
+limiter := rate.NewLimiter(rate.Limit(100), 10) // 100 req/s, burst of 10
 
 func rateLimitMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -516,7 +516,7 @@ func (cl *ClientLimiter) GetLimiter(clientID string) *rate.Limiter {
 ### Connection Pooling
 
 ```go
-// HTTP client con pool de conexiones
+// HTTP client with connection pool
 httpClient := &http.Client{
     Transport: &http.Transport{
         MaxIdleConns:        100,
@@ -526,13 +526,13 @@ httpClient := &http.Client{
     Timeout: 30 * time.Second,
 }
 
-// IMPORTANTE: nunca crear http.Client por request — reusar
+// IMPORTANT: never create an http.Client per request — reuse it
 ```
 
 ### Caching Strategies
 
 ```go
-// In-memory cache simple con sync.Map
+// Simple in-memory cache with sync.Map
 type Cache struct {
     data sync.Map
 }
@@ -569,13 +569,13 @@ func (c *Cache) Set(key string, value any, ttl time.Duration) {
 func main() {
     srv := &http.Server{Addr: ":8080", Handler: mux}
 
-    // Canal para errores del servidor
+    // Channel for server errors
     serverErr := make(chan error, 1)
     go func() {
         serverErr <- srv.ListenAndServe()
     }()
 
-    // Esperar senal de shutdown
+    // Wait for shutdown signal
     quit := make(chan os.Signal, 1)
     signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -586,7 +586,7 @@ func main() {
         log.Printf("shutdown signal received: %v", sig)
     }
 
-    // Graceful shutdown con timeout
+    // Graceful shutdown with timeout
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
 
@@ -598,13 +598,13 @@ func main() {
 }
 ```
 
-**Zero-downtime deploys**: el nuevo proceso arranca y pasa health checks antes de que el viejo reciba la senal de shutdown. Kubernetes maneja esto nativamente con rolling deployments.
+**Zero-downtime deploys**: the new process starts and passes health checks before the old one receives the shutdown signal. Kubernetes handles this natively with rolling deployments.
 
 ---
 
-## Patrones de Base de Datos
+## Database Patterns
 
-### Connection Pooling con sql.DB
+### Connection Pooling with sql.DB
 
 ```go
 db, err := sql.Open("postgres", connString)
@@ -612,22 +612,22 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Configuracion del pool — CRITICO para produccion
-db.SetMaxOpenConns(25)              // Conexiones activas maximas
-db.SetMaxIdleConns(10)              // Conexiones idle en el pool
-db.SetConnMaxLifetime(5 * time.Minute) // Tiempo maximo de vida de una conexion
-db.SetConnMaxIdleTime(1 * time.Minute) // Tiempo maximo idle antes de cerrar
+// Pool configuration — CRITICAL for production
+db.SetMaxOpenConns(25)              // Maximum active connections
+db.SetMaxIdleConns(10)              // Idle connections in the pool
+db.SetConnMaxLifetime(5 * time.Minute) // Maximum lifetime of a connection
+db.SetConnMaxIdleTime(1 * time.Minute) // Maximum idle time before closing
 ```
 
-**Reglas de configuracion:**
-| Parametro | Regla | Razon |
+**Configuration rules:**
+| Parameter | Rule | Reason |
 |---|---|---|
-| `MaxOpenConns` | Menor que el limite de la DB | Evitar saturar la DB |
-| `MaxIdleConns` | ~50% de MaxOpenConns | Balance entre reusar y memoria |
-| `ConnMaxLifetime` | < timeout del firewall/LB | Evitar conexiones rotas |
-| `ConnMaxIdleTime` | Menor que ConnMaxLifetime | Liberar conexiones idle |
+| `MaxOpenConns` | Lower than the DB limit | Avoid saturating the DB |
+| `MaxIdleConns` | ~50% of MaxOpenConns | Balance between reuse and memory |
+| `ConnMaxLifetime` | < firewall/LB timeout | Avoid broken connections |
+| `ConnMaxIdleTime` | Less than ConnMaxLifetime | Free idle connections |
 
-### Transacciones
+### Transactions
 
 ```go
 func (r *OrderRepository) CreateWithItems(
@@ -641,10 +641,10 @@ func (r *OrderRepository) CreateWithItems(
     if err != nil {
         return fmt.Errorf("beginning transaction: %w", err)
     }
-    // defer Rollback es seguro — no hace nada si ya se hizo Commit
+    // defer Rollback is safe — it does nothing if Commit was already called
     defer tx.Rollback()
 
-    // Insertar orden
+    // Insert order
     _, err = tx.ExecContext(ctx,
         "INSERT INTO orders (id, user_id, total) VALUES ($1, $2, $3)",
         order.ID, order.UserID, order.Total,
@@ -653,7 +653,7 @@ func (r *OrderRepository) CreateWithItems(
         return fmt.Errorf("inserting order: %w", err)
     }
 
-    // Insertar items
+    // Insert items
     for _, item := range items {
         _, err = tx.ExecContext(ctx,
             "INSERT INTO order_items (id, order_id, product_id, qty) VALUES ($1, $2, $3, $4)",
@@ -668,21 +668,21 @@ func (r *OrderRepository) CreateWithItems(
 }
 ```
 
-### Niveles de Aislamiento
+### Isolation Levels
 
-| Nivel | Dirty Read | Non-repeatable Read | Phantom Read | Uso |
+| Level | Dirty Read | Non-repeatable Read | Phantom Read | Use |
 |---|---|---|---|---|
-| Read Uncommitted | Si | Si | Si | Casi nunca |
-| Read Committed | No | Si | Si | Default PostgreSQL |
-| Repeatable Read | No | No | Si* | Reportes |
-| Serializable | No | No | No | Transacciones criticas |
+| Read Uncommitted | Yes | Yes | Yes | Almost never |
+| Read Committed | No | Yes | Yes | Default PostgreSQL |
+| Repeatable Read | No | No | Yes* | Reports |
+| Serializable | No | No | No | Critical transactions |
 
-*PostgreSQL previene phantom reads en Repeatable Read.
+*PostgreSQL prevents phantom reads in Repeatable Read.
 
 ### Migration Strategies
 
 ```go
-// Ejemplo con golang-migrate
+// Example with golang-migrate
 import "github.com/golang-migrate/migrate/v4"
 
 m, err := migrate.New(
@@ -693,16 +693,16 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Aplicar todas las migraciones pendientes
+// Apply all pending migrations
 if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
     log.Fatal(err)
 }
 ```
 
-### Repository con Interfaces
+### Repository with Interfaces
 
 ```go
-// Definir interface (en el paquete que la usa)
+// Define interface (in the package that uses it)
 type UserRepository interface {
     GetByID(ctx context.Context, id uuid.UUID) (*User, error)
     GetByEmail(ctx context.Context, email string) (*User, error)
@@ -712,7 +712,7 @@ type UserRepository interface {
     List(ctx context.Context, opts ListOptions) ([]*User, int, error)
 }
 
-// Mock para tests
+// Mock for tests
 type MockUserRepository struct {
     users map[uuid.UUID]*User
 }
@@ -728,18 +728,18 @@ func (m *MockUserRepository) GetByID(_ context.Context, id uuid.UUID) (*User, er
 
 ---
 
-## Observabilidad
+## Observability
 
-### Structured Logging con slog
+### Structured Logging with slog
 
 ```go
-// Configuracion
+// Configuration
 logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
     Level: slog.LevelInfo,
 }))
 slog.SetDefault(logger)
 
-// Uso
+// Usage
 slog.Info("order created",
     slog.String("order_id", order.ID.String()),
     slog.String("user_id", order.UserID.String()),
@@ -747,11 +747,11 @@ slog.Info("order created",
     slog.Duration("latency", elapsed),
 )
 
-// Output JSON:
+// JSON output:
 // {"time":"2025-01-15T10:30:00Z","level":"INFO","msg":"order created",
 //  "order_id":"abc-123","user_id":"user-456","total":99.99,"latency":"15ms"}
 
-// Logger con campos fijos (ideal para requests)
+// Logger with fixed fields (ideal for requests)
 requestLogger := logger.With(
     slog.String("request_id", requestID),
     slog.String("method", r.Method),
@@ -759,7 +759,7 @@ requestLogger := logger.With(
 )
 ```
 
-### Metricas con Prometheus
+### Metrics with Prometheus
 
 ```go
 import "github.com/prometheus/client_golang/prometheus"
@@ -768,7 +768,7 @@ var (
     httpRequestsTotal = prometheus.NewCounterVec(
         prometheus.CounterOpts{
             Name: "http_requests_total",
-            Help: "Total de requests HTTP",
+            Help: "Total HTTP requests",
         },
         []string{"method", "path", "status"},
     )
@@ -776,7 +776,7 @@ var (
     httpRequestDuration = prometheus.NewHistogramVec(
         prometheus.HistogramOpts{
             Name:    "http_request_duration_seconds",
-            Help:    "Duracion de requests HTTP",
+            Help:    "HTTP request duration",
             Buckets: prometheus.DefBuckets,
         },
         []string{"method", "path"},
@@ -802,7 +802,7 @@ func metricsMiddleware(next http.Handler) http.Handler {
 }
 ```
 
-### Distributed Tracing con OpenTelemetry
+### Distributed Tracing with OpenTelemetry
 
 ```go
 import (
@@ -816,8 +816,8 @@ func (s *OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest) 
     ctx, span := tracer.Start(ctx, "OrderService.CreateOrder")
     defer span.End()
 
-    // El span se propaga automaticamente a traves del context
-    user, err := s.users.GetByID(ctx, req.UserID) // crea sub-span
+    // The span is automatically propagated through the context
+    user, err := s.users.GetByID(ctx, req.UserID) // creates sub-span
     if err != nil {
         span.RecordError(err)
         return nil, err
@@ -828,7 +828,7 @@ func (s *OrderService) CreateOrder(ctx context.Context, req CreateOrderRequest) 
         attribute.Float64("order.total", req.Total),
     )
 
-    // ... resto de la logica
+    // ... rest of the logic
 }
 ```
 
@@ -874,13 +874,13 @@ func (h *HealthChecker) Handler() http.HandlerFunc {
 
 ---
 
-## Preguntas de System Design
+## System Design Questions
 
-### Pregunta 1: Disena un URL Shortener
+### Question 1: Design a URL Shortener
 
-**Requisitos**: dado un URL largo, generar un URL corto. Dado un URL corto, redirigir al original.
+**Requirements**: given a long URL, generate a short URL. Given a short URL, redirect to the original.
 
-**Componentes principales:**
+**Main components:**
 
 ```
 ┌──────────┐     ┌──────────────┐     ┌───────────┐
@@ -889,14 +889,14 @@ func (h *HealthChecker) Handler() http.HandlerFunc {
 └──────────┘     └──────┬───────┘     └───────────┘
                         │
                    ┌────▼────┐
-                   │  Redis  │  (cache de URLs populares)
+                   │  Redis  │  (cache for popular URLs)
                    └─────────┘
 ```
 
-**Notas de implementacion en Go:**
+**Implementation notes in Go:**
 
 ```go
-// Generacion de ID corto con base62
+// Short ID generation with base62
 const base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 func encodeBase62(num uint64) string {
@@ -912,46 +912,46 @@ func encodeBase62(num uint64) string {
     return string(result)
 }
 
-// Handler de redireccion — alta performance
+// Redirect handler — high performance
 func (h *Handler) Redirect(w http.ResponseWriter, r *http.Request) {
     shortCode := r.PathValue("code")
 
-    // 1. Buscar en cache (Redis)
+    // 1. Look up in cache (Redis)
     if url, err := h.cache.Get(r.Context(), shortCode); err == nil {
         http.Redirect(w, r, url, http.StatusMovedPermanently)
         return
     }
 
-    // 2. Buscar en DB
+    // 2. Look up in DB
     url, err := h.repo.GetByShortCode(r.Context(), shortCode)
     if err != nil {
         http.NotFound(w, r)
         return
     }
 
-    // 3. Guardar en cache para futuras requests
+    // 3. Save in cache for future requests
     h.cache.Set(r.Context(), shortCode, url.OriginalURL, 24*time.Hour)
 
     http.Redirect(w, r, url.OriginalURL, http.StatusMovedPermanently)
 }
 ```
 
-**Escalabilidad**: usar Snowflake IDs o counter distribuido para generar IDs unicos. Sharding de la DB por hash del short code. CDN para redirects de URLs muy populares.
+**Scalability**: use Snowflake IDs or a distributed counter to generate unique IDs. DB sharding by short code hash. CDN for redirects of very popular URLs.
 
 ---
 
-### Pregunta 2: Disena un Rate Limiter
+### Question 2: Design a Rate Limiter
 
-**Requisitos**: limitar requests por cliente (API key o IP).
+**Requirements**: limit requests per client (API key or IP).
 
-**Algoritmo Token Bucket en Go:**
+**Token Bucket Algorithm in Go:**
 
 ```go
 type TokenBucket struct {
     mu         sync.Mutex
     tokens     float64
     maxTokens  float64
-    refillRate float64    // tokens por segundo
+    refillRate float64    // tokens per second
     lastRefill time.Time
 }
 
@@ -981,9 +981,9 @@ func (tb *TokenBucket) Allow() bool {
 }
 ```
 
-**Para sistema distribuido**: usar Redis con Lua scripts para atomicidad:
+**For a distributed system**: use Redis with Lua scripts for atomicity:
 ```go
-// Sliding window counter con Redis
+// Sliding window counter with Redis
 func (rl *RedisLimiter) Allow(ctx context.Context, key string) (bool, error) {
     pipe := rl.redis.Pipeline()
     now := time.Now().UnixMilli()
@@ -1004,11 +1004,11 @@ func (rl *RedisLimiter) Allow(ctx context.Context, key string) (bool, error) {
 
 ---
 
-### Pregunta 3: Disena un Sistema de Chat
+### Question 3: Design a Chat System
 
-**Requisitos**: chat en tiempo real entre usuarios. Soporte para salas (rooms) y mensajes directos.
+**Requirements**: real-time chat between users. Support for rooms and direct messages.
 
-**Arquitectura:**
+**Architecture:**
 
 ```
 ┌──────────┐  WebSocket  ┌──────────────┐  Pub/Sub  ┌───────┐
@@ -1020,11 +1020,11 @@ func (rl *RedisLimiter) Allow(ctx context.Context, key string) (bool, error) {
 │ Client B │◄──────────────────►│
 └──────────┘                    │
                           ┌─────▼──────┐
-                          │ PostgreSQL │  (persistencia de mensajes)
+                          │ PostgreSQL │  (message persistence)
                           └────────────┘
 ```
 
-**Go es ideal porque**: una goroutine por conexion WebSocket es trivial y eficiente. Con 10K conexiones, solo necesitas ~10K goroutines (~80MB de stacks).
+**Go is ideal because**: one goroutine per WebSocket connection is trivial and efficient. With 10K connections, you only need ~10K goroutines (~80MB of stacks).
 
 ```go
 type Hub struct {
@@ -1076,13 +1076,13 @@ func (h *Hub) Run() {
 }
 ```
 
-**Escalabilidad multi-servidor**: Redis Pub/Sub o NATS para propagar mensajes entre instancias del servidor.
+**Multi-server scalability**: Redis Pub/Sub or NATS to propagate messages between server instances.
 
 ---
 
-### Pregunta 4: Disena una Task Queue
+### Question 4: Design a Task Queue
 
-**Requisitos**: sistema de tareas asincronas con reintentos, prioridades, y procesamiento concurrente.
+**Requirements**: asynchronous task system with retries, priorities, and concurrent processing.
 
 ```go
 type Task struct {
@@ -1174,19 +1174,19 @@ func (tq *TaskQueue) Submit(task Task) error {
 }
 ```
 
-**Go es ideal porque**: los workers son goroutines, la queue es un canal con buffer, y la coordinacion se hace con `select` y `context`. Sin frameworks pesados.
+**Go is ideal because**: workers are goroutines, the queue is a buffered channel, and coordination is done with `select` and `context`. No heavy frameworks needed.
 
 ---
 
-### Pregunta 5: Disena un Cache con TTL
+### Question 5: Design a Cache with TTL
 
-**Requisitos**: cache en memoria con tiempo de expiracion por entrada. Debe ser thread-safe.
+**Requirements**: in-memory cache with per-entry expiration time. Must be thread-safe.
 
 ```go
 type TTLCache[K comparable, V any] struct {
     mu      sync.RWMutex
     items   map[K]*cacheItem[V]
-    onEvict func(K, V) // callback opcional al expirar
+    onEvict func(K, V) // optional callback on expiration
 }
 
 type cacheItem[V any] struct {
@@ -1205,7 +1205,7 @@ func (c *TTLCache[K, V]) Set(key K, value V, ttl time.Duration) {
     c.mu.Lock()
     defer c.mu.Unlock()
 
-    // Si ya existe, cancelar el timer anterior
+    // If it already exists, cancel the previous timer
     if existing, ok := c.items[key]; ok {
         existing.timer.Stop()
     }
@@ -1215,12 +1215,12 @@ func (c *TTLCache[K, V]) Set(key K, value V, ttl time.Duration) {
         expiresAt: time.Now().Add(ttl),
     }
 
-    // Timer para auto-eviccion
+    // Timer for auto-eviction
     item.timer = time.AfterFunc(ttl, func() {
         c.mu.Lock()
         defer c.mu.Unlock()
 
-        // Verificar que no fue reescrito
+        // Verify it was not rewritten
         if current, ok := c.items[key]; ok && current == item {
             delete(c.items, key)
             if c.onEvict != nil {
@@ -1267,9 +1267,9 @@ func (c *TTLCache[K, V]) Len() int {
 }
 ```
 
-**Consideraciones de escalabilidad:**
-- Para alta concurrencia: shardear el cache en N mapas con locks independientes (reduce la contencion).
-- Para evitar memory pressure: limitar el numero de entradas (LRU eviction).
-- Para sistemas distribuidos: migrar a Redis/Memcached.
+**Scalability considerations:**
+- For high concurrency: shard the cache into N maps with independent locks (reduces contention).
+- To avoid memory pressure: limit the number of entries (LRU eviction).
+- For distributed systems: migrate to Redis/Memcached.
 
-**Go es ideal porque**: `sync.RWMutex` para concurrencia, `time.AfterFunc` para timers eficientes, generics para type safety. Todo con la standard library.
+**Go is ideal because**: `sync.RWMutex` for concurrency, `time.AfterFunc` for efficient timers, generics for type safety. All with the standard library.

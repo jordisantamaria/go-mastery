@@ -1,147 +1,146 @@
 # CLI Task Manager
 
-Gestor de tareas desde la terminal, escrito en Go puro (solo stdlib). Proyecto de portfolio que demuestra dominio del desarrollo CLI con Go.
+Task manager from the terminal, written in pure Go (stdlib only). A portfolio project that demonstrates mastery of CLI development with Go.
 
-## Caracteristicas
+## Features
 
-- Crear, listar, completar y eliminar tareas
-- Persistencia en fichero JSON (sin dependencias externas)
-- Salida formateada tipo tabla
-- Mensajes en espanol para el usuario
-- Codigo limpio, idiomatico y bien testeado
+- Create, list, complete, and delete tasks
+- Persistence in a JSON file (no external dependencies)
+- Formatted table-style output
+- Clean, idiomatic, and well-tested code
 
-## Compilar y ejecutar
+## Build and Run
 
 ```bash
-# Compilar el binario
+# Build the binary
 go build -o task .
 
-# O ejecutar directamente
-go run . <comando>
+# Or run directly
+go run . <command>
 ```
 
-## Uso
+## Usage
 
 ```bash
-# Anadir tareas
-./task add "Comprar leche"
-./task add "Estudiar Go"
+# Add tasks
+./task add "Buy milk"
+./task add "Study Go"
 
-# Listar tareas pendientes
+# List pending tasks
 ./task list
 
-# Listar todas (incluidas completadas)
+# List all (including completed)
 ./task list --all
 
-# Marcar como completada
+# Mark as completed
 ./task done 1
 
-# Eliminar una tarea
+# Delete a task
 ./task delete 2
 
-# Ver ayuda
+# Show help
 ./task help
 ```
 
-## Ejemplo de sesion
+## Example Session
 
 ```
-$ ./task add "Comprar leche"
-✓ Tarea #1 creada: "Comprar leche"
+$ ./task add "Buy milk"
+✓ Task #1 created: "Buy milk"
 
-$ ./task add "Estudiar Go"
-✓ Tarea #2 creada: "Estudiar Go"
+$ ./task add "Study Go"
+✓ Task #2 created: "Study Go"
 
 $ ./task list
-  ID   | Estado     | Creada     | Titulo
+  ID   | Status     | Created    | Title
   ---  | ---------- | ---------- | ------
-  1    | pendiente  | 2024-01-15 | Comprar leche
-  2    | pendiente  | 2024-01-15 | Estudiar Go
+  1    | pending    | 2024-01-15 | Buy milk
+  2    | pending    | 2024-01-15 | Study Go
 
 $ ./task done 1
-✓ Tarea #1 completada
+✓ Task #1 completed
 
 $ ./task list --all
-  ID   | Estado     | Creada     | Titulo
+  ID   | Status     | Created    | Title
   ---  | ---------- | ---------- | ------
-  1    | completada | 2024-01-15 | Comprar leche
-  2    | pendiente  | 2024-01-15 | Estudiar Go
+  1    | completed  | 2024-01-15 | Buy milk
+  2    | pending    | 2024-01-15 | Study Go
 
 $ ./task delete 1
-✓ Tarea #1 eliminada
+✓ Task #1 deleted
 ```
 
-## Arquitectura
+## Architecture
 
 ```
 01-cli-tool/
-├── go.mod                  # Modulo Go independiente (sin dependencias externas)
-├── main.go                 # Punto de entrada: configura dependencias y ejecuta
+├── go.mod                  # Independent Go module (no external dependencies)
+├── main.go                 # Entry point: configures dependencies and runs
 ├── README.md
 ├── internal/
 │   ├── task/
-│   │   ├── task.go         # Modelo Task y tipo Status
-│   │   ├── store.go        # Interfaz Store + implementacion JSONStore
-│   │   └── store_test.go   # Tests del almacen (persistencia, edge cases)
+│   │   ├── task.go         # Task model and Status type
+│   │   ├── store.go        # Store interface + JSONStore implementation
+│   │   └── store_test.go   # Store tests (persistence, edge cases)
 │   └── cli/
-│       ├── cli.go          # Dispatcher de comandos y formateo de salida
-│       └── cli_test.go     # Tests del CLI (parseo, integracion)
-└── testdata/               # Fixtures para tests (reservado)
+│       ├── cli.go          # Command dispatcher and output formatting
+│       └── cli_test.go     # CLI tests (parsing, integration)
+└── testdata/               # Test fixtures (reserved)
 ```
 
-### Decisiones de diseno
+### Design Decisions
 
-- **Solo stdlib**: no se usa Cobra, BoltDB ni ninguna dependencia externa. Todo se resuelve con `flag`, `encoding/json`, `os` y `fmt`. Esto demuestra conocimiento profundo de la biblioteca estandar.
-- **Interfaz Store**: el almacen se define como interfaz, lo que permite cambiar la implementacion (por ejemplo a SQLite) sin tocar la logica de comandos.
-- **Inyeccion de dependencias**: `cli.App` recibe `Store`, `Out` y `ErrOut` como campos, haciendo el codigo completamente testable sin mocks complejos.
-- **`internal/`**: los paquetes internos no son importables desde fuera del modulo, respetando la encapsulacion de Go.
-- **Mutex en JSONStore**: garantiza seguridad en accesos concurrentes al fichero.
-- **Variable de entorno `TASK_FILE`**: permite configurar la ruta del fichero de datos, util para tests y entornos diferentes.
+- **Stdlib only**: no Cobra, BoltDB, or any external dependency is used. Everything is solved with `flag`, `encoding/json`, `os`, and `fmt`. This demonstrates deep knowledge of the standard library.
+- **Store interface**: the store is defined as an interface, which allows changing the implementation (for example to SQLite) without touching the command logic.
+- **Dependency injection**: `cli.App` receives `Store`, `Out`, and `ErrOut` as fields, making the code fully testable without complex mocks.
+- **`internal/`**: internal packages are not importable from outside the module, respecting Go's encapsulation.
+- **Mutex in JSONStore**: ensures safety for concurrent access to the file.
+- **`TASK_FILE` environment variable**: allows configuring the data file path, useful for tests and different environments.
 
-## Patrones de Go demostrados
+## Go Patterns Demonstrated
 
-| Patron | Donde se aplica |
+| Pattern | Where It Is Applied |
 |---|---|
-| Interfaces | `task.Store` como contrato del almacen |
-| Inyeccion de dependencias | `cli.App` recibe sus dependencias |
-| `internal/` packages | Encapsulacion a nivel de modulo |
-| Table-driven tests | Tests parametrizados en `cli_test.go` y `store_test.go` |
-| Subtests (`t.Run`) | Organizacion jerarquica de tests |
-| `t.TempDir()` | Directorios temporales que se limpian automaticamente |
-| `io.Writer` | Abstraccion de salida para testing |
-| `flag.NewFlagSet` | Parseo de flags por subcomando |
-| Error wrapping (`%w`) | Cadenas de errores con contexto |
+| Interfaces | `task.Store` as the store contract |
+| Dependency injection | `cli.App` receives its dependencies |
+| `internal/` packages | Module-level encapsulation |
+| Table-driven tests | Parameterized tests in `cli_test.go` and `store_test.go` |
+| Subtests (`t.Run`) | Hierarchical test organization |
+| `t.TempDir()` | Temporary directories that are automatically cleaned up |
+| `io.Writer` | Output abstraction for testing |
+| `flag.NewFlagSet` | Per-subcommand flag parsing |
+| Error wrapping (`%w`) | Error chains with context |
 | Sentinel errors | `ErrTaskNotFound`, `ErrEmptyTitle` |
-| Mutex (`sync.Mutex`) | Concurrencia segura en el almacen |
-| JSON marshaling | Tags struct para serializacion |
-| Metodos con receiver | `Task.StatusLabel()` |
+| Mutex (`sync.Mutex`) | Safe concurrency in the store |
+| JSON marshaling | Struct tags for serialization |
+| Methods with receiver | `Task.StatusLabel()` |
 
 ## Tests
 
 ```bash
-# Ejecutar todos los tests
+# Run all tests
 go test ./...
 
-# Con detalle
+# With detail
 go test -v ./...
 
-# Con cobertura
+# With coverage
 go test -cover ./...
 ```
 
-Los tests cubren:
-- **Store**: crear, listar, completar, eliminar tareas; persistencia entre instancias; auto-incremento de IDs; errores (titulo vacio, ID inexistente, tarea ya completada)
-- **CLI**: parseo de cada subcomando; flags (`--all`); manejo de argumentos invalidos; salida formateada; codigos de salida correctos
+Tests cover:
+- **Store**: create, list, complete, delete tasks; persistence between instances; ID auto-increment; errors (empty title, non-existent ID, task already completed)
+- **CLI**: parsing of each subcommand; flags (`--all`); handling of invalid arguments; formatted output; correct exit codes
 
-## Almacenamiento
+## Storage
 
-Las tareas se guardan en `~/.tasks.json` por defecto. Puedes cambiar la ruta con la variable de entorno `TASK_FILE`:
+Tasks are saved in `~/.tasks.json` by default. You can change the path with the `TASK_FILE` environment variable:
 
 ```bash
-TASK_FILE=/tmp/mis-tareas.json ./task list
+TASK_FILE=/tmp/my-tasks.json ./task list
 ```
 
-El formato del fichero es JSON legible:
+The file format is human-readable JSON:
 
 ```json
 {
@@ -149,14 +148,14 @@ El formato del fichero es JSON legible:
   "tasks": [
     {
       "id": 1,
-      "title": "Comprar leche",
+      "title": "Buy milk",
       "status": "done",
       "created_at": "2024-01-15T10:30:00Z",
       "done_at": "2024-01-15T14:00:00Z"
     },
     {
       "id": 2,
-      "title": "Estudiar Go",
+      "title": "Study Go",
       "status": "pending",
       "created_at": "2024-01-15T10:31:00Z"
     }

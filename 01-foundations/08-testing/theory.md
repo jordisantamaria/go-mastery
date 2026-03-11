@@ -1,14 +1,14 @@
 # 08 - Testing
 
-Go tiene testing como ciudadano de primera clase. No necesitas frameworks externos — el package `testing` de la stdlib es potente y la comunidad lo usa universalmente.
+Go has testing as a first-class citizen. You don't need external frameworks — the `testing` package from the stdlib is powerful and the community uses it universally.
 
-## Basicos
+## Basics
 
-### Convenciones
+### Conventions
 
-- Archivos de test: `xxx_test.go` (Go los excluye automaticamente del build)
-- Funciones de test: `TestXxx(t *testing.T)` (empieza con `Test` + mayuscula)
-- Mismo package que el codigo testeado (o `package xxx_test` para black-box testing)
+- Test files: `xxx_test.go` (Go automatically excludes them from the build)
+- Test functions: `TestXxx(t *testing.T)` (starts with `Test` + uppercase)
+- Same package as the tested code (or `package xxx_test` for black-box testing)
 
 ```go
 // math.go
@@ -31,24 +31,24 @@ func TestAdd(t *testing.T) {
 }
 ```
 
-### Ejecutar tests
+### Running tests
 
 ```bash
-go test ./...                    # todos los tests del proyecto
-go test ./pkg/...                # tests de un package y sub-packages
-go test -v ./...                 # verbose — muestra cada test
-go test -run TestAdd ./...       # solo tests que matchean el regex
-go test -race ./...              # con race detector
-go test -count=1 ./...           # sin cache
-go test -short ./...             # salta tests marcados como largos
-go test -cover ./...             # muestra coverage
-go test -coverprofile=cover.out  # genera archivo de coverage
-go tool cover -html=cover.out    # abre coverage en el navegador
+go test ./...                    # all tests in the project
+go test ./pkg/...                # tests in a package and sub-packages
+go test -v ./...                 # verbose — shows each test
+go test -run TestAdd ./...       # only tests matching the regex
+go test -race ./...              # with race detector
+go test -count=1 ./...           # without cache
+go test -short ./...             # skip tests marked as long
+go test -cover ./...             # show coverage
+go test -coverprofile=cover.out  # generate coverage file
+go tool cover -html=cover.out    # open coverage in the browser
 ```
 
-## Table-driven tests (EL patron de Go)
+## Table-driven tests (THE Go pattern)
 
-El patron mas importante. **Toda entrevista espera que lo conozcas**:
+The most important pattern. **Every interview expects you to know it**:
 
 ```go
 func TestAdd(t *testing.T) {
@@ -75,15 +75,15 @@ func TestAdd(t *testing.T) {
 }
 ```
 
-### Por que table-driven?
+### Why table-driven?
 
-- **Facil anyadir casos**: solo una linea nueva en la tabla
-- **Nombrado**: cada caso tiene un nombre descriptivo
-- **Subtests**: `t.Run` permite ejecutar casos individuales (`-run TestAdd/positive`)
-- **DRY**: la logica de asercion se escribe una sola vez
-- **Estandar**: todo el ecosistema Go lo usa
+- **Easy to add cases**: just a new line in the table
+- **Named**: each case has a descriptive name
+- **Subtests**: `t.Run` allows running individual cases (`-run TestAdd/positive`)
+- **DRY**: the assertion logic is written only once
+- **Standard**: the entire Go ecosystem uses it
 
-## Subtests con t.Run
+## Subtests with t.Run
 
 ```go
 func TestUser(t *testing.T) {
@@ -112,35 +112,35 @@ func TestUser(t *testing.T) {
 }
 ```
 
-Ejecutar un subtest especifico:
+Run a specific subtest:
 ```bash
 go test -run TestUser/validation/empty_name ./...
 ```
 
 ## t.Helper()
 
-Marca una funcion como helper — los errores reportan la linea del caller, no del helper:
+Marks a function as a helper — errors report the caller's line, not the helper's:
 
 ```go
 func assertEqual(t *testing.T, got, want int) {
-    t.Helper() // sin esto, el error apunta a esta linea en lugar del test
+    t.Helper() // without this, the error points to this line instead of the test
     if got != want {
         t.Errorf("got %d, want %d", got, want)
     }
 }
 
 func TestSomething(t *testing.T) {
-    assertEqual(t, Add(1, 2), 3) // el error apuntara AQUI, no dentro de assertEqual
+    assertEqual(t, Add(1, 2), 3) // the error will point HERE, not inside assertEqual
 }
 ```
 
 ## t.Parallel()
 
-Ejecutar tests en paralelo:
+Run tests in parallel:
 
 ```go
 func TestSlowA(t *testing.T) {
-    t.Parallel() // marca como paralelizable
+    t.Parallel() // mark as parallelizable
     time.Sleep(time.Second)
     // ...
 }
@@ -150,12 +150,12 @@ func TestSlowB(t *testing.T) {
     time.Sleep(time.Second)
     // ...
 }
-// Ambos corren a la vez — total ~1s en vez de ~2s
+// Both run at the same time — total ~1s instead of ~2s
 ```
 
-> **Cuidado**: tests paralelos no deben compartir estado mutable. Cada uno debe ser independiente.
+> **Caution**: parallel tests must not share mutable state. Each one must be independent.
 
-### Parallel en table-driven tests
+### Parallel in table-driven tests
 
 ```go
 func TestAdd(t *testing.T) {
@@ -170,7 +170,7 @@ func TestAdd(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            t.Parallel() // cada subtest corre en paralelo
+            t.Parallel() // each subtest runs in parallel
             got := Add(tt.a, tt.b)
             if got != tt.want {
                 t.Errorf("got %d, want %d", got, tt.want)
@@ -182,56 +182,56 @@ func TestAdd(t *testing.T) {
 
 ## t.Cleanup()
 
-Registrar funciones de cleanup que se ejecutan al final del test:
+Register cleanup functions that run at the end of the test:
 
 ```go
 func TestWithDB(t *testing.T) {
     db := setupTestDB(t)
     t.Cleanup(func() {
-        db.Close()  // se ejecuta al final, pase lo que pase
+        db.Close()  // runs at the end, no matter what
     })
 
-    // usar db...
+    // use db...
 }
 ```
 
-## TestMain — setup/teardown global
+## TestMain — global setup/teardown
 
 ```go
 func TestMain(m *testing.M) {
-    // Setup global (antes de todos los tests)
+    // Global setup (before all tests)
     db := setupDatabase()
 
-    code := m.Run() // ejecuta todos los tests
+    code := m.Run() // run all tests
 
-    // Teardown global (despues de todos los tests)
+    // Global teardown (after all tests)
     db.Close()
 
     os.Exit(code)
 }
 ```
 
-## t.Skip — saltar tests condicionalmente
+## t.Skip — skip tests conditionally
 
 ```go
 func TestIntegration(t *testing.T) {
     if testing.Short() {
         t.Skip("skipping integration test in short mode")
     }
-    // test largo...
+    // long test...
 }
 ```
 
 ```bash
-go test -short ./...  # salta los tests marcados con t.Skip en short mode
+go test -short ./...  # skips tests marked with t.Skip in short mode
 ```
 
-## Mocking con interfaces (sin frameworks)
+## Mocking with interfaces (no frameworks)
 
-En Go, el mocking se hace con **interfaces**, no con frameworks magicos:
+In Go, mocking is done with **interfaces**, not magic frameworks:
 
 ```go
-// El codigo real depende de una interface
+// The real code depends on an interface
 type UserRepository interface {
     GetByID(id int) (*User, error)
     Save(user *User) error
@@ -245,7 +245,7 @@ func (s *UserService) GetUser(id int) (*User, error) {
     return s.repo.GetByID(id)
 }
 
-// En tests, creas un mock que implementa la interface
+// In tests, you create a mock that implements the interface
 type mockUserRepo struct {
     users map[int]*User
     err   error
@@ -292,23 +292,23 @@ func TestGetUser(t *testing.T) {
 }
 ```
 
-> Este patron es **fundamental**. Dependency injection via interfaces + mock structs = testeable sin frameworks.
+> This pattern is **fundamental**. Dependency injection via interfaces + mock structs = testable without frameworks.
 
 ## Benchmarks
 
-Medir el rendimiento de funciones:
+Measure the performance of functions:
 
 ```go
 func BenchmarkAdd(b *testing.B) {
-    for b.Loop() {  // Go 1.24+ — el runtime controla las iteraciones
+    for b.Loop() {  // Go 1.24+ — the runtime controls iterations
         Add(2, 3)
     }
 }
 
-// Benchmark con setup
+// Benchmark with setup
 func BenchmarkSort(b *testing.B) {
     data := generateRandomSlice(10000)
-    b.ResetTimer() // no contar el setup
+    b.ResetTimer() // don't count the setup
 
     for b.Loop() {
         sorted := make([]int, len(data))
@@ -319,10 +319,10 @@ func BenchmarkSort(b *testing.B) {
 ```
 
 ```bash
-go test -bench=. ./...                 # ejecutar benchmarks
-go test -bench=BenchmarkAdd ./...      # benchmark especifico
-go test -bench=. -benchmem ./...       # incluir allocations
-go test -bench=. -count=5 ./...        # 5 iteraciones para estabilidad
+go test -bench=. ./...                 # run benchmarks
+go test -bench=BenchmarkAdd ./...      # specific benchmark
+go test -bench=. -benchmem ./...       # include allocations
+go test -bench=. -count=5 ./...        # 5 iterations for stability
 ```
 
 Output:
@@ -332,11 +332,11 @@ BenchmarkAdd-8    1000000000    0.3 ns/op    0 B/op    0 allocs/op
 
 ## Fuzzing (Go 1.18+)
 
-Encontrar bugs con inputs aleatorios:
+Find bugs with random inputs:
 
 ```go
 func FuzzReverse(f *testing.F) {
-    // Seed corpus — ejemplos iniciales
+    // Seed corpus — initial examples
     f.Add("hello")
     f.Add("world")
     f.Add("")
@@ -352,13 +352,13 @@ func FuzzReverse(f *testing.F) {
 ```
 
 ```bash
-go test -fuzz=FuzzReverse ./...          # ejecutar fuzzing
-go test -fuzz=FuzzReverse -fuzztime=30s  # limitar tiempo
+go test -fuzz=FuzzReverse ./...          # run fuzzing
+go test -fuzz=FuzzReverse -fuzztime=30s  # limit time
 ```
 
-> Fuzzing es poderoso para encontrar edge cases que no se te ocurririan: strings Unicode raros, numeros extremos, inputs vacios.
+> Fuzzing is powerful for finding edge cases you would not think of: unusual Unicode strings, extreme numbers, empty inputs.
 
-## Build tags para integration tests
+## Build tags for integration tests
 
 ```go
 //go:build integration
@@ -366,13 +366,13 @@ go test -fuzz=FuzzReverse -fuzztime=30s  # limitar tiempo
 package mypackage
 
 func TestDatabaseIntegration(t *testing.T) {
-    // solo se ejecuta con: go test -tags=integration ./...
+    // only runs with: go test -tags=integration ./...
 }
 ```
 
 ```bash
-go test ./...                    # NO ejecuta integration tests
-go test -tags=integration ./...  # SI los ejecuta
+go test ./...                    # does NOT run integration tests
+go test -tags=integration ./...  # DOES run them
 ```
 
 ## Golden files (snapshot testing)
@@ -383,7 +383,7 @@ func TestRenderHTML(t *testing.T) {
 
     golden := filepath.Join("testdata", t.Name()+".golden")
 
-    if *update {  // flag -update para regenerar
+    if *update {  // flag -update to regenerate
         os.WriteFile(golden, []byte(got), 0644)
     }
 
@@ -394,39 +394,39 @@ func TestRenderHTML(t *testing.T) {
 }
 ```
 
-## Errores comunes en testing
+## Common mistakes in testing
 
 ### t.Fatal vs t.Error
 
 ```go
-t.Error("esto falla pero el test SIGUE")   // reporta error, continua
-t.Fatal("esto falla y el test PARA")       // reporta error, para inmediatamente
-t.Errorf("con formato: got %d", got)       // como Error pero con formato
-t.Fatalf("con formato: %v", err)           // como Fatal pero con formato
+t.Error("this fails but the test CONTINUES")    // reports error, continues
+t.Fatal("this fails and the test STOPS")         // reports error, stops immediately
+t.Errorf("with format: got %d", got)             // like Error but with format
+t.Fatalf("with format: %v", err)                 // like Fatal but with format
 ```
 
-- Usa `t.Fatal` cuando el resto del test no tiene sentido sin ese valor
-- Usa `t.Error` cuando quieres reportar multiples fallos
+- Use `t.Fatal` when the rest of the test makes no sense without that value
+- Use `t.Error` when you want to report multiple failures
 
-## Preguntas de entrevista frecuentes
+## Common interview questions
 
-1. **Que es un table-driven test y por que es el estandar en Go?**
-   Un test que define una tabla de casos (struct slice), itera sobre ellos, y ejecuta cada uno como subtest con t.Run. Es el estandar porque es DRY, facil de ampliar, y cada caso es aislado y nombrado.
+1. **What is a table-driven test and why is it the standard in Go?**
+   A test that defines a table of cases (struct slice), iterates over them, and runs each one as a subtest with t.Run. It is the standard because it is DRY, easy to extend, and each case is isolated and named.
 
-2. **Como mockeas dependencias en Go?**
-   Con interfaces. El codigo depende de una interface, y en tests pasas una implementacion mock (un struct que la satisface). No se necesitan frameworks.
+2. **How do you mock dependencies in Go?**
+   With interfaces. The code depends on an interface, and in tests you pass a mock implementation (a struct that satisfies it). No frameworks are needed.
 
-3. **Que es t.Helper() y cuando lo usas?**
-   Marca una funcion como test helper para que los errores reporten la linea del caller, no del helper. Se usa en funciones de asercion reutilizables.
+3. **What is t.Helper() and when do you use it?**
+   Marks a function as a test helper so that errors report the caller's line, not the helper's. Used in reusable assertion functions.
 
-4. **Diferencia entre t.Error y t.Fatal?**
-   `t.Error` reporta el fallo y continua. `t.Fatal` reporta y detiene el test inmediatamente. Usa Fatal cuando un fallo hace que el resto del test no tenga sentido.
+4. **Difference between t.Error and t.Fatal?**
+   `t.Error` reports the failure and continues. `t.Fatal` reports and stops the test immediately. Use Fatal when a failure makes the rest of the test meaningless.
 
-5. **Como ejecutas benchmarks en Go?**
-   `go test -bench=. ./...`. Las funciones de benchmark usan `testing.B` y el metodo `b.Loop()` (Go 1.24+) o `for i := 0; i < b.N; i++`. Con `-benchmem` muestra allocations.
+5. **How do you run benchmarks in Go?**
+   `go test -bench=. ./...`. Benchmark functions use `testing.B` and the `b.Loop()` method (Go 1.24+) or `for i := 0; i < b.N; i++`. With `-benchmem` it shows allocations.
 
-6. **Que es fuzzing y cuando es util?**
-   Testing con inputs aleatorios generados automaticamente. Encuentra edge cases (Unicode, numeros extremos, strings largos) que un programador no pensaria. Disponible desde Go 1.18.
+6. **What is fuzzing and when is it useful?**
+   Testing with automatically generated random inputs. Finds edge cases (Unicode, extreme numbers, long strings) that a programmer would not think of. Available since Go 1.18.
 
-7. **Como separas unit tests de integration tests?**
-   Con build tags (`//go:build integration`) y ejecutando con `go test -tags=integration`. O con `testing.Short()` y el flag `-short`.
+7. **How do you separate unit tests from integration tests?**
+   With build tags (`//go:build integration`) and running with `go test -tags=integration`. Or with `testing.Short()` and the `-short` flag.

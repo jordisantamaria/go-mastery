@@ -1,76 +1,76 @@
-# Language Internals — Go en Profundidad
+# Language Internals — Go In Depth
 
-Guia exhaustiva de los internos de Go para preparacion de entrevistas tecnicas. Cada seccion cubre la teoria y los detalles de implementacion que los entrevistadores suelen preguntar.
+Exhaustive guide to Go internals for technical interview preparation. Each section covers the theory and implementation details that interviewers commonly ask about.
 
 ---
 
-## Tabla de Contenidos
+## Table of Contents
 
 1. [Garbage Collector](#garbage-collector)
-2. [Scheduler (Modelo GMP)](#scheduler-modelo-gmp)
+2. [Scheduler (GMP Model)](#scheduler-gmp-model)
 3. [Memory Model](#memory-model)
 4. [Escape Analysis](#escape-analysis)
 5. [Stack vs Heap](#stack-vs-heap)
 6. [Interface Internals](#interface-internals)
 7. [Slice Internals](#slice-internals)
 8. [Map Internals](#map-internals)
-9. [Preguntas de Entrevista](#preguntas-de-entrevista)
+9. [Interview Questions](#interview-questions)
 
 ---
 
 ## Garbage Collector
 
-### Algoritmo Tri-Color Mark-and-Sweep
+### Tri-Color Mark-and-Sweep Algorithm
 
-El GC de Go utiliza un algoritmo de marcado y barrido tricolor **concurrente**. Los objetos se clasifican en tres colores:
+Go's GC uses a **concurrent** tri-color mark-and-sweep algorithm. Objects are classified into three colors:
 
-- **Blanco**: no visitado todavia. Al final del ciclo de marcado, los objetos blancos se consideran basura.
-- **Gris**: visitado, pero sus referencias aun no han sido examinadas.
-- **Negro**: visitado y todas sus referencias han sido examinadas.
+- **White**: not yet visited. At the end of the marking cycle, white objects are considered garbage.
+- **Gray**: visited, but their references have not yet been examined.
+- **Black**: visited and all their references have been examined.
 
-**Proceso:**
+**Process:**
 
-1. Inicialmente todos los objetos son blancos.
-2. Los objetos raiz (stack, globals) se marcan como grises.
-3. Se toma un objeto gris, se examinan sus referencias (que se marcan como grises), y el objeto original pasa a negro.
-4. Se repite hasta que no queden objetos grises.
-5. Todos los objetos blancos restantes son basura y se pueden liberar.
+1. Initially all objects are white.
+2. Root objects (stack, globals) are marked as gray.
+3. A gray object is taken, its references are examined (and marked as gray), and the original object becomes black.
+4. This repeats until no gray objects remain.
+5. All remaining white objects are garbage and can be freed.
 
 ### Write Barrier
 
-Como el GC corre **concurrentemente** con el programa (mutator), existe el riesgo de que el mutator modifique punteros mientras el GC esta marcando. El **write barrier** es un fragmento de codigo que se ejecuta cada vez que el mutator escribe un puntero, asegurando que el GC no pierda objetos vivos.
+Since the GC runs **concurrently** with the program (mutator), there is a risk that the mutator modifies pointers while the GC is marking. The **write barrier** is a piece of code that executes every time the mutator writes a pointer, ensuring that the GC does not miss live objects.
 
-Go usa un **hybrid write barrier** (desde Go 1.8):
-- Combina el Dijkstra write barrier (marca el nuevo objeto referenciado) con el Yuasa write barrier (marca el viejo objeto referenciado).
-- Esto elimina la necesidad de re-escanear stacks durante el marcado, reduciendo la latencia.
+Go uses a **hybrid write barrier** (since Go 1.8):
+- Combines the Dijkstra write barrier (marks the new referenced object) with the Yuasa write barrier (marks the old referenced object).
+- This eliminates the need to re-scan stacks during marking, reducing latency.
 
-### Fases del GC
+### GC Phases
 
-1. **Mark Setup (STW)**: breve pausa stop-the-world para activar el write barrier y preparar el marcado. Todos los goroutines deben alcanzar un safe point.
-2. **Marking (concurrent)**: recorre el grafo de objetos marcando los vivos. Corre en paralelo con el programa usando hasta 25% de los recursos de CPU por defecto.
-3. **Mark Termination (STW)**: segunda pausa STW para desactivar el write barrier y hacer limpieza final.
-4. **Sweeping (concurrent)**: libera la memoria de los objetos no marcados. Ocurre de forma incremental conforme se necesita memoria.
+1. **Mark Setup (STW)**: brief stop-the-world pause to activate the write barrier and prepare marking. All goroutines must reach a safe point.
+2. **Marking (concurrent)**: traverses the object graph marking live objects. Runs in parallel with the program using up to 25% of CPU resources by default.
+3. **Mark Termination (STW)**: second STW pause to deactivate the write barrier and perform final cleanup.
+4. **Sweeping (concurrent)**: frees the memory of unmarked objects. Occurs incrementally as memory is needed.
 
-### Tuning: GOGC y GOMEMLIMIT
+### Tuning: GOGC and GOMEMLIMIT
 
-**GOGC** (por defecto 100):
-- Controla la frecuencia del GC.
-- Valor = porcentaje de crecimiento del heap antes de disparar un nuevo ciclo.
-- `GOGC=100`: el GC se dispara cuando el heap crece al doble desde el ultimo ciclo.
-- `GOGC=200`: tolera 3x el tamano del heap vivo antes de recolectar.
-- `GOGC=off`: desactiva el GC (peligroso en produccion).
+**GOGC** (default 100):
+- Controls GC frequency.
+- Value = percentage of heap growth before triggering a new cycle.
+- `GOGC=100`: the GC triggers when the heap doubles since the last cycle.
+- `GOGC=200`: tolerates 3x the live heap size before collecting.
+- `GOGC=off`: disables the GC (dangerous in production).
 
 **GOMEMLIMIT** (Go 1.19+):
-- Establece un limite suave de memoria total del proceso Go.
-- El GC se vuelve mas agresivo cuando se acerca al limite.
-- Resuelve el problema clasico: con GOGC alto, el programa puede consumir demasiada memoria.
-- Patron recomendado en produccion: `GOGC=off` + `GOMEMLIMIT=XGiB` cuando se quiere maximizar throughput con un presupuesto de memoria fijo.
+- Sets a soft limit on the total memory of the Go process.
+- The GC becomes more aggressive when approaching the limit.
+- Solves the classic problem: with high GOGC, the program can consume too much memory.
+- Recommended pattern in production: `GOGC=off` + `GOMEMLIMIT=XGiB` when you want to maximize throughput with a fixed memory budget.
 
 ```go
-// Ejemplo: configurar via variables de entorno
-// GOGC=100 GOMEMLIMIT=512MiB ./mi-servicio
+// Example: configure via environment variables
+// GOGC=100 GOMEMLIMIT=512MiB ./my-service
 
-// O programaticamente:
+// Or programmatically:
 import "runtime/debug"
 
 func init() {
@@ -79,25 +79,25 @@ func init() {
 }
 ```
 
-### Latencia vs Throughput
+### Latency vs Throughput
 
-| Estrategia | Latencia | Throughput | Memoria |
+| Strategy | Latency | Throughput | Memory |
 |---|---|---|---|
-| GOGC bajo (e.g. 50) | Menor (GC frecuente pero rapido) | Menor (mas tiempo en GC) | Menor |
-| GOGC alto (e.g. 200) | Mayor (GC menos frecuente pero mas trabajo) | Mayor (menos overhead) | Mayor |
-| GOGC=off + GOMEMLIMIT | Variable | Maximizado | Controlada |
+| Low GOGC (e.g. 50) | Lower (frequent but fast GC) | Lower (more time in GC) | Lower |
+| High GOGC (e.g. 200) | Higher (less frequent GC but more work) | Higher (less overhead) | Higher |
+| GOGC=off + GOMEMLIMIT | Variable | Maximized | Controlled |
 
-**Regla practica**: para servicios sensibles a latencia (APIs), mantener GOGC por defecto y ajustar GOMEMLIMIT. Para batch processing, aumentar GOGC.
+**Rule of thumb**: for latency-sensitive services (APIs), keep GOGC at default and adjust GOMEMLIMIT. For batch processing, increase GOGC.
 
 ---
 
-## Scheduler (Modelo GMP)
+## Scheduler (GMP Model)
 
-### Los Tres Componentes
+### The Three Components
 
-- **G (Goroutine)**: unidad de trabajo ligera. Contiene el stack, el instruction pointer y metadata. Tamano inicial de stack: ~2-8 KB (varia por version).
-- **M (Machine/OS Thread)**: hilo del sistema operativo que ejecuta codigo Go. Cada M necesita un P para ejecutar goroutines.
-- **P (Processor)**: recurso logico de scheduling. Contiene una run queue local de goroutines y el cache de memoria local (mcache). La cantidad de Ps se controla con `GOMAXPROCS`.
+- **G (Goroutine)**: lightweight unit of work. Contains the stack, instruction pointer, and metadata. Initial stack size: ~2-8 KB (varies by version).
+- **M (Machine/OS Thread)**: operating system thread that executes Go code. Each M needs a P to execute goroutines.
+- **P (Processor)**: logical scheduling resource. Contains a local run queue of goroutines and the local memory cache (mcache). The number of Ps is controlled by `GOMAXPROCS`.
 
 ```
                 ┌─────────┐
@@ -120,40 +120,40 @@ func init() {
 
 ### Work Stealing
 
-Cuando la run queue local de un P esta vacia, intenta robar goroutines de otros Ps:
+When a P's local run queue is empty, it tries to steal goroutines from other Ps:
 
-1. Primero revisa la global run queue (1/61 del tiempo para fairness).
-2. Luego intenta robar la mitad de la run queue de otro P aleatorio.
-3. Si no encuentra trabajo, revisa el netpoller.
-4. Si aun no hay trabajo, el M se estaciona (park) y deja el P libre.
+1. First checks the global run queue (1/61 of the time for fairness).
+2. Then tries to steal half of the run queue from a random P.
+3. If no work is found, checks the netpoller.
+4. If there is still no work, the M parks and releases the P.
 
-### Preemption (Apropiacion)
+### Preemption
 
-**Cooperative Preemption (antes de Go 1.14):**
-- Las goroutines solo cedian el procesador en puntos seguros: llamadas a funciones, operaciones de canal, asignacion de memoria, etc.
-- Problema: un loop `for {}` sin llamadas a funciones bloqueaba el P indefinidamente.
+**Cooperative Preemption (before Go 1.14):**
+- Goroutines only yielded the processor at safe points: function calls, channel operations, memory allocation, etc.
+- Problem: a `for {}` loop without function calls would block the P indefinitely.
 
 **Asynchronous Preemption (Go 1.14+):**
-- El runtime envia senales (SIGURG en Unix) a los Ms para forzar la preemption.
-- Resuelve el problema de goroutines que no cooperan.
-- El runtime puede pausar una goroutine en cualquier punto seguro del codigo.
+- The runtime sends signals (SIGURG on Unix) to Ms to force preemption.
+- Solves the problem of non-cooperating goroutines.
+- The runtime can pause a goroutine at any safe point in the code.
 
 ### GOMAXPROCS
 
-- Controla cuantos Ps (y por tanto cuantos hilos de OS ejecutan goroutines en paralelo) hay.
-- Por defecto = numero de CPUs logicas.
-- `runtime.GOMAXPROCS(n)` permite cambiarlo en runtime.
-- **No confundir con el numero de hilos totales** — puede haber mas Ms que Ps (por ejemplo, Ms bloqueados en syscalls).
+- Controls how many Ps (and therefore how many OS threads execute goroutines in parallel) there are.
+- Default = number of logical CPUs.
+- `runtime.GOMAXPROCS(n)` allows changing it at runtime.
+- **Do not confuse with the total number of threads** — there can be more Ms than Ps (for example, Ms blocked in syscalls).
 
-### Ciclo de Vida de una Goroutine
+### Goroutine Lifecycle
 
 ```
               ┌──────────┐
-    go f() ──►│ Runnable │◄──── I/O listo, timer, chan recv
+    go f() ──►│ Runnable │◄──── I/O ready, timer, chan recv
               └────┬─────┘
                    │ scheduler
               ┌────▼─────┐
-              │ Running  │──── ejecutandose en un M/P
+              │ Running  │──── executing on an M/P
               └────┬─────┘
                    │
           ┌────────┼────────┐
@@ -163,44 +163,44 @@ Cuando la run queue local de un P esta vacia, intenta robar goroutines de otros 
      │(chan,  │ │(OS)   │ │(return)│
      │ mutex) │ └───┬───┘ └────────┘
      └────┬───┘     │
-          │         │ syscall termina
+          │         │ syscall finishes
           └─────────┘
 ```
 
 ### Netpoller
 
-- Mecanismo para I/O no bloqueante integrado en el scheduler.
-- Usa `epoll` (Linux), `kqueue` (macOS), `IOCP` (Windows).
-- Cuando una goroutine hace I/O de red, en lugar de bloquear un M:
-  1. Se registra el file descriptor con el netpoller.
-  2. La goroutine pasa a estado "waiting".
-  3. El M queda libre para ejecutar otra goroutine.
-  4. Cuando la I/O esta lista, el netpoller despierta la goroutine y la pone en la run queue.
+- Mechanism for non-blocking I/O integrated into the scheduler.
+- Uses `epoll` (Linux), `kqueue` (macOS), `IOCP` (Windows).
+- When a goroutine does network I/O, instead of blocking an M:
+  1. The file descriptor is registered with the netpoller.
+  2. The goroutine transitions to "waiting" state.
+  3. The M is free to execute another goroutine.
+  4. When the I/O is ready, the netpoller wakes the goroutine and puts it on the run queue.
 
 ---
 
 ## Memory Model
 
-### Relaciones Happens-Before
+### Happens-Before Relationships
 
-El memory model de Go define cuando una lectura de una variable puede **observar** un valor escrito por otra goroutine. Se basa en relaciones **happens-before**:
+Go's memory model defines when a read of a variable can **observe** a value written by another goroutine. It is based on **happens-before** relationships:
 
-> Si evento A **happens-before** evento B, entonces A es observable por B.
+> If event A **happens-before** event B, then A is observable by B.
 
-Garantias principales:
+Main guarantees:
 
-1. **Inicializacion**: la funcion `init()` del paquete A happens-before cualquier funcion de un paquete que importa A.
-2. **Creacion de goroutine**: la sentencia `go f()` happens-before el inicio de la ejecucion de `f()`.
-3. **Fin de goroutine**: el retorno de una goroutine **no** tiene garantia de happens-before respecto a ningun evento en otra goroutine (a menos que se use sincronizacion explicita).
-4. **Canales**: un send happens-before el correspondiente receive se completa.
-5. **Canales con buffer**: el receive del elemento i happens-before el send del elemento i+C se completa (C = capacidad del canal).
-6. **close(ch)**: happens-before un receive que retorna zero value por canal cerrado.
-7. **sync.Mutex**: `Unlock()` happens-before cualquier `Lock()` posterior.
-8. **sync.Once**: el retorno de `f()` en `once.Do(f)` happens-before cualquier retorno de `once.Do`.
+1. **Initialization**: the `init()` function of package A happens-before any function of a package that imports A.
+2. **Goroutine creation**: the `go f()` statement happens-before the start of `f()`'s execution.
+3. **Goroutine termination**: the return of a goroutine has **no** happens-before guarantee with respect to any event in another goroutine (unless explicit synchronization is used).
+4. **Channels**: a send happens-before the corresponding receive completes.
+5. **Buffered channels**: the receive of element i happens-before the send of element i+C completes (C = channel capacity).
+6. **close(ch)**: happens-before a receive that returns a zero value due to a closed channel.
+7. **sync.Mutex**: `Unlock()` happens-before any subsequent `Lock()`.
+8. **sync.Once**: the return of `f()` in `once.Do(f)` happens-before any return of `once.Do`.
 
-### Garantias de sync/atomic
+### sync/atomic Guarantees
 
-El paquete `sync/atomic` provee operaciones atomicas que tambien establecen relaciones happens-before:
+The `sync/atomic` package provides atomic operations that also establish happens-before relationships:
 
 ```go
 var x, y atomic.Int64
@@ -211,19 +211,19 @@ y.Store(1)  // B (A happens-before B)
 
 // Goroutine 2
 if y.Load() == 1 { // C
-    // x.Load() esta garantizado a ser 1 aqui
-    // porque A happens-before B, y B happens-before C
+    // x.Load() is guaranteed to be 1 here
+    // because A happens-before B, and B happens-before C
     fmt.Println(x.Load()) // 1
 }
 ```
 
-Desde Go 1.19, las operaciones atomicas son **sequentially consistent**, lo que significa que el orden total de operaciones atomicas es consistente con el orden del programa de cada goroutine.
+Since Go 1.19, atomic operations are **sequentially consistent**, meaning the total order of atomic operations is consistent with the program order of each goroutine.
 
-### Garantias de Canales
+### Channel Guarantees
 
 ```go
-// Un send en un unbuffered channel happens-before
-// el receive correspondiente se completa.
+// A send on an unbuffered channel happens-before
+// the corresponding receive completes.
 ch := make(chan int)
 
 go func() {
@@ -231,74 +231,74 @@ go func() {
     ch <- struct{}{} // B — send happens-before receive completes
 }()
 
-<-ch               // C — receive completa despues del send
-fmt.Println(x)     // D — x es garantizado 42
+<-ch               // C — receive completes after the send
+fmt.Println(x)     // D — x is guaranteed to be 42
 ```
 
-### Cuando NO Usar Memoria Compartida
+### When NOT to Use Shared Memory
 
-Preferir canales sobre memoria compartida cuando:
+Prefer channels over shared memory when:
 
-- La comunicacion es entre goroutines con flujo claro de datos.
-- Se necesita transferir **ownership** de datos.
-- El patron es productor-consumidor, fan-out/fan-in, o pipeline.
+- Communication is between goroutines with a clear data flow.
+- You need to transfer **ownership** of data.
+- The pattern is producer-consumer, fan-out/fan-in, or pipeline.
 
-Usar mutex/atomics cuando:
-- Se protege un cache compartido.
-- Se mantiene un contador simple.
-- El acceso es rapido y la contencion es baja.
+Use mutex/atomics when:
+- Protecting a shared cache.
+- Maintaining a simple counter.
+- Access is fast and contention is low.
 
-> **"Do not communicate by sharing memory; instead, share memory by communicating."** — Proverbio Go
+> **"Do not communicate by sharing memory; instead, share memory by communicating."** — Go Proverb
 
 ---
 
 ## Escape Analysis
 
-### Que es
+### What It Is
 
-El compilador de Go decide si una variable se puede alojar en el stack (barato) o si debe escapar al heap (mas caro, requiere GC). Este proceso se llama **escape analysis**.
+The Go compiler decides whether a variable can be allocated on the stack (cheap) or must escape to the heap (more expensive, requires GC). This process is called **escape analysis**.
 
-### Como Verlo
+### How to See It
 
 ```bash
 go build -gcflags='-m' ./...
-# Output mas verbose:
+# More verbose output:
 go build -gcflags='-m -m' ./...
 ```
 
-Ejemplo de output:
+Example output:
 ```
 ./main.go:10:6: can inline newUser
 ./main.go:11:9: &User{} escapes to heap
 ./main.go:15:2: moved to heap: x
 ```
 
-### Escenarios Comunes de Escape
+### Common Escape Scenarios
 
-#### 1. Retornar un puntero a variable local
+#### 1. Returning a pointer to a local variable
 ```go
 func newUser(name string) *User {
-    u := User{Name: name} // escapa al heap — se retorna un puntero
+    u := User{Name: name} // escapes to heap — a pointer is returned
     return &u
 }
 ```
 
-#### 2. Conversion a interface
+#### 2. Conversion to interface
 ```go
 func logValue(v any) {
-    fmt.Println(v) // el argumento puede escapar porque 'any' es interface
+    fmt.Println(v) // the argument may escape because 'any' is an interface
 }
 
 func main() {
     x := 42
-    logValue(x) // x escapa al heap por la conversion a interface
+    logValue(x) // x escapes to heap due to the interface conversion
 }
 ```
 
-#### 3. Closures que capturan variables
+#### 3. Closures that capture variables
 ```go
 func makeCounter() func() int {
-    count := 0 // escapa al heap — capturada por el closure
+    count := 0 // escapes to heap — captured by the closure
     return func() int {
         count++
         return count
@@ -306,78 +306,78 @@ func makeCounter() func() int {
 }
 ```
 
-#### 4. Slices que crecen mas alla de su capacidad inicial
+#### 4. Slices that grow beyond their initial capacity
 ```go
 func grow() []int {
     s := make([]int, 0)
     for i := 0; i < 1000; i++ {
-        s = append(s, i) // puede escapar si el compilador no puede determinar el tamano
+        s = append(s, i) // may escape if the compiler cannot determine the size
     }
     return s
 }
 ```
 
-#### 5. Enviar un puntero a traves de un canal
+#### 5. Sending a pointer through a channel
 ```go
 ch := make(chan *User)
-u := &User{Name: "Ana"} // escapa — enviada por canal, lifetime indeterminado
+u := &User{Name: "Ana"} // escapes — sent via channel, indeterminate lifetime
 ch <- u
 ```
 
-### Por Que Importa para el Rendimiento
+### Why It Matters for Performance
 
-- **Stack**: asignacion = mover el stack pointer (extremadamente rapido, ~1 instruccion).
-- **Heap**: asignacion = pedir memoria al allocator + sera rastreado por el GC.
-- Reducir escapes al heap = menos presion en el GC = menor latencia.
-- **Tip**: pasar structs por valor (no puntero) cuando son pequenos y no necesitan mutacion.
+- **Stack**: allocation = moving the stack pointer (extremely fast, ~1 instruction).
+- **Heap**: allocation = requesting memory from the allocator + will be tracked by the GC.
+- Reducing heap escapes = less GC pressure = lower latency.
+- **Tip**: pass structs by value (not pointer) when they are small and do not need mutation.
 
 ---
 
 ## Stack vs Heap
 
-### Stacks de Goroutines
+### Goroutine Stacks
 
-- **Tamano inicial**: tipicamente 2-8 KB (depende de la version de Go).
-- **Crecimiento**: cuando el stack se llena, Go asigna un nuevo stack de **el doble** del tamano y copia todo el contenido (copy stack, no segmented stacks desde Go 1.4).
-- **Shrinking**: el GC puede reducir stacks que estan usando mucho menos de lo asignado (tipicamente cuando solo se usa 1/4).
+- **Initial size**: typically 2-8 KB (depends on Go version).
+- **Growth**: when the stack is full, Go allocates a new stack of **double** the size and copies all contents (copy stack, not segmented stacks since Go 1.4).
+- **Shrinking**: the GC can reduce stacks that are using much less than allocated (typically when only 1/4 is used).
 
 ### Stack Copying
 
-Cuando un stack crece:
-1. Se asigna un nuevo bloque de memoria del doble del tamano.
-2. Se copia todo el contenido del stack viejo al nuevo.
-3. Se actualizan **todos los punteros** que apuntan al stack viejo (por eso Go no permite punteros a stack desde C/assembly facilmente).
-4. Se libera el stack viejo.
+When a stack grows:
+1. A new memory block of double the size is allocated.
+2. All contents of the old stack are copied to the new one.
+3. **All pointers** pointing to the old stack are updated (this is why Go does not easily allow pointers to the stack from C/assembly).
+4. The old stack is freed.
 
-Esto es O(n) respecto al tamano del stack, pero ocurre con poca frecuencia gracias al crecimiento exponencial.
+This is O(n) with respect to the stack size, but occurs infrequently thanks to exponential growth.
 
-### Cuando las Asignaciones Van al Heap
+### When Allocations Go to the Heap
 
-- La variable escapa del scope de la funcion (ver Escape Analysis).
-- El compilador no puede determinar el tamano en tiempo de compilacion.
-- Objetos demasiado grandes para el stack.
-- Variables compartidas entre goroutines (a traves de punteros).
+- The variable escapes the function's scope (see Escape Analysis).
+- The compiler cannot determine the size at compile time.
+- Objects too large for the stack.
+- Variables shared between goroutines (through pointers).
 
-### Implicaciones para la Presion del GC
+### Implications for GC Pressure
 
 ```
 Stack allocation:
-  - Automaticamente liberada cuando la funcion retorna
-  - No involucra al GC
-  - Extremadamente rapida
+  - Automatically freed when the function returns
+  - Does not involve the GC
+  - Extremely fast
 
 Heap allocation:
-  - Requiere que el GC rastree el objeto
-  - Puede causar pausas STW mas largas si hay mucha basura
-  - Mas lenta que stack allocation
+  - Requires the GC to track the object
+  - Can cause longer STW pauses if there is a lot of garbage
+  - Slower than stack allocation
 ```
 
-**Estrategias para reducir presion del GC:**
-1. Usar `sync.Pool` para objetos temporales que se reusan frecuentemente.
-2. Pre-alocar slices con capacidad conocida: `make([]T, 0, expectedSize)`.
-3. Pasar structs pequenos por valor en lugar de por puntero.
-4. Evitar conversiones innecesarias a `interface{}`.
-5. Reusar buffers con `bytes.Buffer` o `[]byte` pools.
+**Strategies to reduce GC pressure:**
+1. Use `sync.Pool` for temporary objects that are frequently reused.
+2. Pre-allocate slices with known capacity: `make([]T, 0, expectedSize)`.
+3. Pass small structs by value instead of by pointer.
+4. Avoid unnecessary conversions to `interface{}`.
+5. Reuse buffers with `bytes.Buffer` or `[]byte` pools.
 
 ---
 
@@ -385,37 +385,37 @@ Heap allocation:
 
 ### iface vs eface
 
-Internamente, Go representa las interfaces de dos formas:
+Internally, Go represents interfaces in two ways:
 
 **eface** (empty interface / `any` / `interface{}`):
 ```go
 type eface struct {
-    _type *_type // puntero a la info del tipo
-    data  unsafe.Pointer // puntero a los datos
+    _type *_type // pointer to type info
+    data  unsafe.Pointer // pointer to the data
 }
 ```
 
-**iface** (interface con metodos):
+**iface** (interface with methods):
 ```go
 type iface struct {
-    tab  *itab          // puntero a la tabla de metodos + info de tipos
-    data unsafe.Pointer // puntero a los datos
+    tab  *itab          // pointer to the method table + type info
+    data unsafe.Pointer // pointer to the data
 }
 
 type itab struct {
-    inter *interfacetype // tipo de la interface
-    _type *_type         // tipo concreto
-    hash  uint32         // hash del tipo (para type assertions rapidos)
+    inter *interfacetype // interface type
+    _type *_type         // concrete type
+    hash  uint32         // type hash (for fast type assertions)
     _     [4]byte
-    fun   [1]uintptr     // array de punteros a funciones (metodos)
+    fun   [1]uintptr     // array of function pointers (methods)
 }
 ```
 
-**Punto clave**: ambas son 2 words (16 bytes en 64-bit). La itab se cachea despues de la primera creacion.
+**Key point**: both are 2 words (16 bytes on 64-bit). The itab is cached after its first creation.
 
-### Satisfaccion de Interfaces en Compile Time
+### Interface Satisfaction at Compile Time
 
-Go verifica que un tipo satisface una interface **en tiempo de compilacion**:
+Go verifies that a type satisfies an interface **at compile time**:
 
 ```go
 type Writer interface {
@@ -428,16 +428,16 @@ func (m MyWriter) Write(p []byte) (int, error) {
     return len(p), nil
 }
 
-// Verificacion en compile time (patron comun):
+// Compile-time verification (common pattern):
 var _ Writer = MyWriter{}       // OK
-var _ Writer = (*MyWriter)(nil) // OK — verifica que *MyWriter implementa Writer
+var _ Writer = (*MyWriter)(nil) // OK — verifies that *MyWriter implements Writer
 ```
 
-Si el tipo no implementa la interface, el compilador da error **inmediatamente**.
+If the type does not implement the interface, the compiler gives an error **immediately**.
 
-### El Gotcha Clasico: Nil Interface vs Interface con Valor Nil
+### The Classic Gotcha: Nil Interface vs Interface with Nil Value
 
-Este es uno de los errores mas preguntados en entrevistas:
+This is one of the most commonly asked errors in interviews:
 
 ```go
 type MyError struct{}
@@ -445,48 +445,48 @@ type MyError struct{}
 func (e *MyError) Error() string { return "error" }
 
 func getError() error {
-    var err *MyError = nil // puntero nil a MyError
-    return err             // CUIDADO: retorna iface{tab: *itab(MyError), data: nil}
+    var err *MyError = nil // nil pointer to MyError
+    return err             // CAUTION: returns iface{tab: *itab(MyError), data: nil}
 }
 
 func main() {
     err := getError()
     if err != nil {
-        // ESTO SE EJECUTA! err no es nil.
-        // err es una interface con tab != nil (conoce el tipo)
-        // pero data == nil (el valor es nil)
+        // THIS EXECUTES! err is not nil.
+        // err is an interface with tab != nil (it knows the type)
+        // but data == nil (the value is nil)
         fmt.Println("error:", err)
     }
 }
 ```
 
-**Explicacion**:
-- Una interface es `nil` **solo** cuando tanto `tab` como `data` son nil.
-- Cuando asignas un puntero nil tipado a una interface, la interface tiene informacion de tipo (tab != nil), asi que la interface NO es nil.
+**Explanation**:
+- An interface is `nil` **only** when both `tab` and `data` are nil.
+- When you assign a typed nil pointer to an interface, the interface has type information (tab != nil), so the interface is NOT nil.
 
-**Solucion**: retornar `nil` directamente, no un puntero nil tipado:
+**Solution**: return `nil` directly, not a typed nil pointer:
 ```go
 func getError() error {
     var err *MyError = nil
     if err == nil {
-        return nil // retorna una interface nil (tab=nil, data=nil)
+        return nil // returns a nil interface (tab=nil, data=nil)
     }
     return err
 }
 ```
 
-### Type Assertion y Type Switch
+### Type Assertion and Type Switch
 
-**Type assertion** — extrae el valor concreto:
+**Type assertion** — extracts the concrete value:
 ```go
 var w Writer = MyWriter{}
-mw := w.(MyWriter)          // panic si w no es MyWriter
-mw, ok := w.(MyWriter)      // ok=false si no es MyWriter, no panic
+mw := w.(MyWriter)          // panics if w is not MyWriter
+mw, ok := w.(MyWriter)      // ok=false if not MyWriter, no panic
 ```
 
-**Internamente**: compara el hash en la itab con el hash del tipo solicitado. Si coincide, retorna el puntero data. Es O(1).
+**Internally**: compares the hash in the itab with the hash of the requested type. If they match, returns the data pointer. It is O(1).
 
-**Type switch** — patron comun y eficiente:
+**Type switch** — common and efficient pattern:
 ```go
 switch v := i.(type) {
 case string:
@@ -494,7 +494,7 @@ case string:
 case int:
     fmt.Println("int:", v)
 default:
-    fmt.Println("otro tipo")
+    fmt.Println("other type")
 }
 ```
 
@@ -504,13 +504,13 @@ default:
 
 ### SliceHeader
 
-Un slice en Go es un descriptor de tres campos:
+A slice in Go is a three-field descriptor:
 
 ```go
 type SliceHeader struct {
-    Data uintptr // puntero al array subyacente
-    Len  int     // numero de elementos actuales
-    Cap  int     // capacidad total del array subyacente
+    Data uintptr // pointer to the underlying array
+    Len  int     // number of current elements
+    Cap  int     // total capacity of the underlying array
 }
 ```
 
@@ -525,50 +525,50 @@ SliceHeader:
    │
    ▼
 ┌───┬───┬───┬───┬───┐
-│ 1 │ 2 │ 3 │ 4 │ 5 │  (array subyacente)
+│ 1 │ 2 │ 3 │ 4 │ 5 │  (underlying array)
 └───┴───┴───┴───┴───┘
 ```
 
-### Comportamiento de Append y Reasignacion
+### Append Behavior and Reallocation
 
 ```go
 s := make([]int, 0, 4) // len=0, cap=4
 
-s = append(s, 1, 2, 3)    // len=3, cap=4 (mismo array)
-s = append(s, 4)           // len=4, cap=4 (mismo array)
-s = append(s, 5)           // len=5, cap=8 (NUEVO array, copia datos)
+s = append(s, 1, 2, 3)    // len=3, cap=4 (same array)
+s = append(s, 4)           // len=4, cap=4 (same array)
+s = append(s, 5)           // len=5, cap=8 (NEW array, copies data)
 ```
 
-**Estrategia de crecimiento** (simplificada, varia por version):
-- Si cap < 256: duplicar la capacidad.
-- Si cap >= 256: crecer ~25% + un poco mas (formula ajustada desde Go 1.18).
+**Growth strategy** (simplified, varies by version):
+- If cap < 256: double the capacity.
+- If cap >= 256: grow ~25% + a bit more (formula adjusted since Go 1.18).
 
-**Importante**: cuando append causa reasignacion, el nuevo slice apunta a un array diferente. Slices que compartian el array original **no ven los cambios**.
+**Important**: when append causes reallocation, the new slice points to a different array. Slices that shared the original array **do not see the changes**.
 
 ### Slice Tricks
 
 ```go
-// Eliminar elemento en indice i (no preserva orden — O(1)):
+// Remove element at index i (does not preserve order — O(1)):
 s[i] = s[len(s)-1]
 s = s[:len(s)-1]
 
-// Eliminar elemento en indice i (preserva orden — O(n)):
+// Remove element at index i (preserves order — O(n)):
 s = append(s[:i], s[i+1:]...)
 
-// Insertar elemento en indice i:
+// Insert element at index i:
 s = append(s[:i], append([]T{elem}, s[i:]...)...)
-// Mejor alternativa (sin allocation intermedia):
-s = append(s, zero) // crece por 1
+// Better alternative (no intermediate allocation):
+s = append(s, zero) // grow by 1
 copy(s[i+1:], s[i:])
 s[i] = elem
 
-// Copiar un slice (independiente del original):
+// Copy a slice (independent from the original):
 copia := make([]int, len(s))
 copy(copia, s)
-// O con Go 1.21+:
+// Or with Go 1.21+:
 copia := slices.Clone(s)
 
-// Filtrar in-place:
+// Filter in-place:
 n := 0
 for _, v := range s {
     if keep(v) {
@@ -579,25 +579,25 @@ for _, v := range s {
 s = s[:n]
 ```
 
-### Memory Leaks con Slices
+### Memory Leaks with Slices
 
-**Problema clasico**: al hacer sub-slice, el array subyacente completo permanece en memoria:
+**Classic problem**: when sub-slicing, the entire underlying array remains in memory:
 
 ```go
 func getFirstThree(data []byte) []byte {
-    return data[:3] // PELIGRO: retiene referencia al array completo
+    return data[:3] // DANGER: retains reference to the entire array
 }
 
-// Si 'data' tiene 1GB, esos 1GB no se pueden liberar.
+// If 'data' is 1GB, that 1GB cannot be freed.
 ```
 
-**Solucion**: copiar los datos necesarios:
+**Solution**: copy the needed data:
 ```go
 func getFirstThree(data []byte) []byte {
     result := make([]byte, 3)
     copy(result, data[:3])
     return result
-    // O con Go 1.21+:
+    // Or with Go 1.21+:
     // return bytes.Clone(data[:3])
 }
 ```
@@ -606,14 +606,14 @@ func getFirstThree(data []byte) []byte {
 
 ## Map Internals
 
-### Tabla Hash con Buckets
+### Hash Table with Buckets
 
-Un `map[K]V` en Go es una tabla hash implementada con buckets:
+A `map[K]V` in Go is a hash table implemented with buckets:
 
-- Cada bucket almacena hasta **8 pares key-value**.
-- El hash de la key determina en que bucket va.
-- Los top 8 bits del hash (tophash) se almacenan en el bucket para comparacion rapida.
-- Si un bucket esta lleno, se encadenan overflow buckets.
+- Each bucket stores up to **8 key-value pairs**.
+- The hash of the key determines which bucket it goes to.
+- The top 8 bits of the hash (tophash) are stored in the bucket for fast comparison.
+- If a bucket is full, overflow buckets are chained.
 
 ```
 map[string]int
@@ -632,107 +632,107 @@ map[string]int
 └─────────┴───────────────┘
 ```
 
-**Nota de layout**: keys y values se almacenan separados (primero todas las keys, luego todos los values) para evitar padding innecesario. Por ejemplo, `map[int64]int8` — sin esta optimizacion, cada par necesitaria 16 bytes (por padding); con ella, 8 keys de 8 bytes + 8 values de 1 byte.
+**Layout note**: keys and values are stored separately (first all keys, then all values) to avoid unnecessary padding. For example, `map[int64]int8` — without this optimization, each pair would need 16 bytes (due to padding); with it, 8 keys of 8 bytes + 8 values of 1 byte.
 
-### Crecimiento y Evacuacion
+### Growth and Evacuation
 
-Cuando el factor de carga excede ~6.5 (promedio de 6.5 elementos por bucket), el map crece:
+When the load factor exceeds ~6.5 (average of 6.5 elements per bucket), the map grows:
 
-1. Se asigna un nuevo array de buckets del **doble** del tamano.
-2. Los datos **no** se copian inmediatamente (a diferencia de los stacks).
-3. Se usa **evacuacion incremental**: cada operacion de insert/delete migra algunos buckets viejos al nuevo array.
-4. Durante la evacuacion, tanto el array viejo como el nuevo coexisten.
+1. A new bucket array of **double** the size is allocated.
+2. The data is **not** copied immediately (unlike stacks).
+3. **Incremental evacuation** is used: each insert/delete operation migrates some old buckets to the new array.
+4. During evacuation, both the old and new arrays coexist.
 
-Esto distribuye el costo del crecimiento a lo largo del tiempo, evitando picos de latencia.
+This distributes the growth cost over time, avoiding latency spikes.
 
-### Maps No Son Seguros para Acceso Concurrente
+### Maps Are Not Safe for Concurrent Access
 
 ```go
 m := make(map[string]int)
 
-// ESTO CAUSA DATA RACE (y posible crash):
+// THIS CAUSES A DATA RACE (and possible crash):
 go func() { m["a"] = 1 }()
 go func() { m["b"] = 2 }()
 ```
 
-**Razon**: el runtime detecta escrituras concurrentes al map y lanza un **fatal error** (no es un panic recuperable — el programa muere):
+**Reason**: the runtime detects concurrent writes to the map and throws a **fatal error** (not a recoverable panic — the program dies):
 
 ```
 fatal error: concurrent map writes
 ```
 
-**Soluciones**:
-1. `sync.Mutex` o `sync.RWMutex` para proteger el map.
-2. `sync.Map` para casos especificos (ver abajo).
-3. Patron de confinamiento: cada goroutine tiene su propio map.
+**Solutions**:
+1. `sync.Mutex` or `sync.RWMutex` to protect the map.
+2. `sync.Map` for specific cases (see below).
+3. Confinement pattern: each goroutine has its own map.
 
-**sync.Map** es optimo para:
-- Keys escritas una vez y leidas muchas veces.
-- Goroutines que trabajan en sets de keys disjuntos.
-- **No** es un reemplazo general para map + mutex.
+**sync.Map** is optimal for:
+- Keys written once and read many times.
+- Goroutines working on disjoint sets of keys.
+- **Not** a general replacement for map + mutex.
 
-### Aleatorizacion del Orden de Iteracion
+### Randomized Iteration Order
 
 ```go
 m := map[string]int{"a": 1, "b": 2, "c": 3}
 for k, v := range m {
-    fmt.Println(k, v) // orden diferente cada ejecucion
+    fmt.Println(k, v) // different order each execution
 }
 ```
 
-**Por diseno**: Go aleatoriza el orden de iteracion de maps para evitar que el codigo dependa de un orden particular. Esto se implementa eligiendo un offset de inicio aleatorio para la iteracion.
+**By design**: Go randomizes the iteration order of maps to prevent code from depending on a particular order. This is implemented by choosing a random starting offset for the iteration.
 
 ---
 
-## Preguntas de Entrevista
+## Interview Questions
 
-### Pregunta 1: Explica el modelo GMP del scheduler de Go.
-**Respuesta**: G es una goroutine (unidad de trabajo ligera con su propio stack). M es un OS thread que ejecuta codigo. P es un procesador logico con una run queue local. La cantidad de Ps se controla con GOMAXPROCS. El scheduler asigna Gs a Ms a traves de Ps. Cuando un P no tiene trabajo, roba goroutines de otros Ps (work stealing). Esto permite que miles de goroutines corran eficientemente sobre pocos hilos del OS.
+### Question 1: Explain Go's GMP scheduler model.
+**Answer**: G is a goroutine (lightweight unit of work with its own stack). M is an OS thread that executes code. P is a logical processor with a local run queue. The number of Ps is controlled by GOMAXPROCS. The scheduler assigns Gs to Ms through Ps. When a P has no work, it steals goroutines from other Ps (work stealing). This allows thousands of goroutines to run efficiently on few OS threads.
 
-### Pregunta 2: Que pasa cuando un goroutine hace una syscall bloqueante?
-**Respuesta**: El M que ejecuta la goroutine se bloquea con ella. El P se desasocia del M bloqueado y busca otro M libre (o crea uno nuevo) para seguir ejecutando goroutines. Cuando la syscall termina, el M intenta reacquirir un P. Si no hay Ps libres, la goroutine va a la global run queue y el M se estaciona.
+### Question 2: What happens when a goroutine makes a blocking syscall?
+**Answer**: The M executing the goroutine blocks with it. The P detaches from the blocked M and looks for another free M (or creates a new one) to continue executing goroutines. When the syscall finishes, the M tries to reacquire a P. If there are no free Ps, the goroutine goes to the global run queue and the M parks.
 
-### Pregunta 3: Cual es la diferencia entre una interface nil y una interface que contiene un valor nil?
-**Respuesta**: Una interface en Go son dos palabras: (type, value). Una interface nil tiene ambos nil. Una interface que contiene un puntero nil tiene type != nil y value == nil. Comparar con `!= nil` da `true` para la segunda porque la interface "sabe" que tipo contiene. Esto es una fuente comun de bugs, especialmente al retornar `error`.
+### Question 3: What is the difference between a nil interface and an interface containing a nil value?
+**Answer**: An interface in Go is two words: (type, value). A nil interface has both nil. An interface containing a nil pointer has type != nil and value == nil. Comparing with `!= nil` returns `true` for the latter because the interface "knows" what type it contains. This is a common source of bugs, especially when returning `error`.
 
-### Pregunta 4: Como funciona el escape analysis y por que importa?
-**Respuesta**: El compilador analiza si una variable puede vivir solo en el stack o necesita escapar al heap. Las asignaciones en stack son practicamente gratis (solo mover el stack pointer) y no involucran al GC. Las del heap requieren el allocator y el GC las rastrea. Reducir escapes mejora el rendimiento. Se puede inspeccionar con `go build -gcflags='-m'`.
+### Question 4: How does escape analysis work and why does it matter?
+**Answer**: The compiler analyzes whether a variable can live only on the stack or needs to escape to the heap. Stack allocations are practically free (just moving the stack pointer) and do not involve the GC. Heap allocations require the allocator and the GC tracks them. Reducing escapes improves performance. It can be inspected with `go build -gcflags='-m'`.
 
-### Pregunta 5: Que pasa internamente cuando haces append a un slice que esta lleno?
-**Respuesta**: Si `len == cap`, append asigna un nuevo array subyacente con mayor capacidad (tipicamente el doble si es pequeno, ~25% mas si es grande), copia los elementos del array viejo al nuevo, y retorna un nuevo SliceHeader apuntando al nuevo array. El array viejo eventualmente sera recolectado por el GC si no hay mas referencias.
+### Question 5: What happens internally when you append to a slice that is full?
+**Answer**: If `len == cap`, append allocates a new underlying array with greater capacity (typically double if small, ~25% more if large), copies the elements from the old array to the new one, and returns a new SliceHeader pointing to the new array. The old array will eventually be collected by the GC if there are no more references.
 
-### Pregunta 6: Por que los maps de Go no son seguros para acceso concurrente?
-**Respuesta**: Por rendimiento. Agregar sincronizacion interna penalizaria todos los usos, incluso los single-threaded. Go opta por dejar la sincronizacion al programador. El runtime detecta escrituras concurrentes al map y lanza un fatal error (no un panic) para evitar corrupcion silenciosa de datos.
+### Question 6: Why are Go maps not safe for concurrent access?
+**Answer**: For performance. Adding internal synchronization would penalize all uses, even single-threaded ones. Go opts to leave synchronization to the programmer. The runtime detects concurrent writes to the map and throws a fatal error (not a panic) to prevent silent data corruption.
 
-### Pregunta 7: Que es el write barrier y para que sirve?
-**Respuesta**: El write barrier es codigo que se ejecuta cada vez que el mutator (programa) escribe un puntero. Es necesario porque el GC corre concurrentemente — sin el, el GC podria no ver nuevas referencias creadas durante el marcado y recolectar objetos vivos. Go usa un hybrid write barrier que combina las tecnicas de Dijkstra y Yuasa.
+### Question 7: What is the write barrier and what is it for?
+**Answer**: The write barrier is code that executes every time the mutator (program) writes a pointer. It is necessary because the GC runs concurrently — without it, the GC might not see new references created during marking and could collect live objects. Go uses a hybrid write barrier that combines the Dijkstra and Yuasa techniques.
 
-### Pregunta 8: Como maneja Go el crecimiento de stacks de goroutines?
-**Respuesta**: Go usa "copy stacks" (desde Go 1.4). Cuando una goroutine necesita mas stack, se asigna un nuevo bloque del doble del tamano, se copia todo el contenido, se actualizan todos los punteros que apuntan al stack viejo, y se libera el viejo. Esto es O(n) pero infrecuente gracias al crecimiento exponencial.
+### Question 8: How does Go handle goroutine stack growth?
+**Answer**: Go uses "copy stacks" (since Go 1.4). When a goroutine needs more stack, a new block of double the size is allocated, all contents are copied, all pointers pointing to the old stack are updated, and the old one is freed. This is O(n) but infrequent thanks to exponential growth.
 
-### Pregunta 9: Explica las fases del Garbage Collector de Go.
-**Respuesta**: (1) Mark Setup: breve pausa STW para activar el write barrier. (2) Marking: fase concurrente donde se recorre el grafo de objetos usando el algoritmo tricolor. Usa ~25% de CPU. (3) Mark Termination: breve pausa STW para desactivar el write barrier. (4) Sweeping: liberacion concurrente e incremental de objetos no marcados.
+### Question 9: Explain the phases of Go's Garbage Collector.
+**Answer**: (1) Mark Setup: brief STW pause to activate the write barrier. (2) Marking: concurrent phase that traverses the object graph using the tri-color algorithm. Uses ~25% of CPU. (3) Mark Termination: brief STW pause to deactivate the write barrier. (4) Sweeping: concurrent and incremental freeing of unmarked objects.
 
-### Pregunta 10: Que es GOMEMLIMIT y cuando lo usarias?
-**Respuesta**: GOMEMLIMIT (Go 1.19+) es un limite suave de memoria. El GC se vuelve mas agresivo al acercarse al limite. Es util cuando se conoce el presupuesto de memoria (ej: contenedor con 512MB). Se puede combinar con GOGC=off para maximizar throughput: el GC solo corre cuando se acerca al limite, no por porcentaje de crecimiento.
+### Question 10: What is GOMEMLIMIT and when would you use it?
+**Answer**: GOMEMLIMIT (Go 1.19+) is a soft memory limit. The GC becomes more aggressive when approaching the limit. It is useful when the memory budget is known (e.g., a container with 512MB). It can be combined with GOGC=off to maximize throughput: the GC only runs when approaching the limit, not based on growth percentage.
 
-### Pregunta 11: Cual es la diferencia entre iface y eface?
-**Respuesta**: eface es la representacion de `interface{}` (any): tiene un puntero al tipo y un puntero a los datos. iface es para interfaces con metodos: tiene un puntero a una itab (que contiene la tabla de metodos + informacion de tipos) y un puntero a los datos. La itab se cachea para evitar recalcularla en cada asignacion.
+### Question 11: What is the difference between iface and eface?
+**Answer**: eface is the representation of `interface{}` (any): it has a pointer to the type and a pointer to the data. iface is for interfaces with methods: it has a pointer to an itab (which contains the method table + type information) and a pointer to the data. The itab is cached to avoid recalculating it on each assignment.
 
-### Pregunta 12: Como evitarias una memory leak con slices?
-**Respuesta**: Al hacer sub-slicing, el array subyacente completo permanece en memoria. Si el array original es grande y solo necesitas una pequena porcion, debes copiar los datos a un nuevo slice con `copy()` o `slices.Clone()`. Tambien aplica cuando se eliminan elementos: hacer `s[i] = zeroValue` antes de truncar para evitar retener referencias a objetos que deberian ser recolectados.
+### Question 12: How would you avoid a memory leak with slices?
+**Answer**: When sub-slicing, the entire underlying array remains in memory. If the original array is large and you only need a small portion, you must copy the data to a new slice with `copy()` or `slices.Clone()`. This also applies when removing elements: set `s[i] = zeroValue` before truncating to avoid retaining references to objects that should be collected.
 
-### Pregunta 13: Que garantias de happens-before proveen los canales?
-**Respuesta**: (1) Un send happens-before el receive correspondiente se completa. (2) El close de un canal happens-before un receive que retorna zero value. (3) En unbuffered channels, el receive happens-before el send se completa. (4) En buffered channels con cap C, el receive del elemento k happens-before el send del elemento k+C se completa.
+### Question 13: What happens-before guarantees do channels provide?
+**Answer**: (1) A send happens-before the corresponding receive completes. (2) Closing a channel happens-before a receive that returns a zero value. (3) In unbuffered channels, the receive happens-before the send completes. (4) In buffered channels with cap C, the receive of element k happens-before the send of element k+C completes.
 
-### Pregunta 14: Que es el netpoller y como se integra con el scheduler?
-**Respuesta**: El netpoller usa mecanismos del OS (epoll/kqueue/IOCP) para I/O de red no bloqueante. Cuando una goroutine hace I/O de red, se registra el file descriptor con el netpoller, la goroutine pasa a "waiting", y el M queda libre. Cuando la I/O esta lista, la goroutine se pone en la run queue. Esto permite que miles de goroutines hagan I/O concurrente sin necesitar miles de threads.
+### Question 14: What is the netpoller and how does it integrate with the scheduler?
+**Answer**: The netpoller uses OS mechanisms (epoll/kqueue/IOCP) for non-blocking network I/O. When a goroutine does network I/O, the file descriptor is registered with the netpoller, the goroutine moves to "waiting", and the M is freed. When the I/O is ready, the goroutine is put on the run queue. This allows thousands of goroutines to do concurrent I/O without needing thousands of threads.
 
-### Pregunta 15: Como funciona la preemption asincrona en Go 1.14+?
-**Respuesta**: Antes de Go 1.14, las goroutines solo cedian el procesador en puntos cooperativos (llamadas a funciones, operaciones de canal). Un loop `for {}` podia bloquear un P indefinidamente. Desde Go 1.14, el runtime usa senales del OS (SIGURG en Unix) para interrumpir goroutines en cualquier punto seguro. El sysmon thread detecta goroutines que llevan >10ms sin ceder y envia la senal.
+### Question 15: How does asynchronous preemption work in Go 1.14+?
+**Answer**: Before Go 1.14, goroutines only yielded the processor at cooperative points (function calls, channel operations). A `for {}` loop could block a P indefinitely. Since Go 1.14, the runtime uses OS signals (SIGURG on Unix) to interrupt goroutines at any safe point. The sysmon thread detects goroutines that have been running for >10ms without yielding and sends the signal.
 
-### Pregunta 16: Cual es la diferencia entre sync.Mutex y sync.RWMutex? Cuando usar cada uno?
-**Respuesta**: `sync.Mutex` permite un solo acceso (lectura o escritura). `sync.RWMutex` permite multiples lectores simultaneos pero solo un escritor. Usar RWMutex cuando las lecturas son mucho mas frecuentes que las escrituras (ratio tipico >10:1). Si las escrituras son frecuentes, el overhead de RWMutex no justifica su complejidad y un Mutex simple es preferible.
+### Question 16: What is the difference between sync.Mutex and sync.RWMutex? When to use each?
+**Answer**: `sync.Mutex` allows a single access (read or write). `sync.RWMutex` allows multiple simultaneous readers but only one writer. Use RWMutex when reads are much more frequent than writes (typical ratio >10:1). If writes are frequent, the overhead of RWMutex does not justify its complexity and a simple Mutex is preferable.
 
-### Pregunta 17: Que es un data race y como se diferencia de una race condition?
-**Respuesta**: Un **data race** es cuando dos goroutines acceden a la misma variable, al menos una escribe, y no hay sincronizacion. Es undefined behavior. Una **race condition** es un bug logico donde el resultado depende del orden de ejecucion. Se puede tener race conditions sin data races (usando sincronizacion pero con logica incorrecta). Go detecta data races con `go run -race`.
+### Question 17: What is a data race and how does it differ from a race condition?
+**Answer**: A **data race** is when two goroutines access the same variable, at least one writes, and there is no synchronization. It is undefined behavior. A **race condition** is a logical bug where the result depends on the execution order. You can have race conditions without data races (using synchronization but with incorrect logic). Go detects data races with `go run -race`.

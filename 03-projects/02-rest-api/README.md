@@ -1,118 +1,118 @@
-# Proyecto 2: Finance Tracker REST API
+# Project 2: Finance Tracker REST API
 
-API REST para tracking de finanzas personales (ingresos y gastos). Demuestra clean architecture, desarrollo backend profesional y dominio profundo de la stdlib de Go.
+REST API for personal finance tracking (income and expenses). Demonstrates clean architecture, professional backend development, and deep mastery of Go's stdlib.
 
-**Sin dependencias externas** — solo stdlib de Go (`net/http`, `crypto`, `encoding/json`, etc.).
+**No external dependencies** — only Go's stdlib (`net/http`, `crypto`, `encoding/json`, etc.).
 
-## Arquitectura
+## Architecture
 
 ```
 02-rest-api/
 ├── cmd/
 │   └── api/
-│       └── main.go              # Entrypoint: wiring de dependencias, servidor
+│       └── main.go              # Entrypoint: dependency wiring, server
 ├── internal/
 │   ├── model/
-│   │   ├── transaction.go       # Tipo de dominio Transaction
-│   │   └── user.go              # Tipo de dominio User
+│   │   ├── transaction.go       # Transaction domain type
+│   │   └── user.go              # User domain type
 │   ├── handler/
-│   │   ├── transaction.go       # Handlers HTTP para transacciones (CRUD)
-│   │   ├── auth.go              # Handlers de registro y login
+│   │   ├── transaction.go       # HTTP handlers for transactions (CRUD)
+│   │   ├── auth.go              # Registration and login handlers
 │   │   └── health.go            # Health check
 │   ├── service/
-│   │   ├── transaction.go       # Lógica de negocio de transacciones
-│   │   └── auth.go              # Lógica de autenticación (JWT + hashing)
+│   │   ├── transaction.go       # Transaction business logic
+│   │   └── auth.go              # Authentication logic (JWT + hashing)
 │   ├── repository/
-│   │   ├── interfaces.go        # Interfaces del repositorio
-│   │   ├── memory.go            # Implementación in-memory (maps + RWMutex)
-│   │   └── memory_test.go       # Tests del repositorio
+│   │   ├── interfaces.go        # Repository interfaces
+│   │   ├── memory.go            # In-memory implementation (maps + RWMutex)
+│   │   └── memory_test.go       # Repository tests
 │   └── middleware/
-│       ├── auth.go              # Middleware JWT (extrae user del token)
-│       ├── logging.go           # Log estructurado de cada petición
-│       ├── recovery.go          # Recuperación de panics
-│       └── cors.go              # Cabeceras CORS
+│       ├── auth.go              # JWT middleware (extracts user from token)
+│       ├── logging.go           # Structured logging of each request
+│       ├── recovery.go          # Panic recovery
+│       └── cors.go              # CORS headers
 ├── pkg/
 │   └── jwt/
-│       ├── jwt.go               # Implementación JWT HS256 (sin librerías)
-│       └── jwt_test.go          # Tests del JWT
+│       ├── jwt.go               # JWT HS256 implementation (no libraries)
+│       └── jwt_test.go          # JWT tests
 ├── go.mod
 └── README.md
 ```
 
-### Flujo de dependencias
+### Dependency Flow
 
 ```
-Handler → Service → Repository (interfaz)
+Handler → Service → Repository (interface)
                          ↑
-                    MemoryStore (implementación)
+                    MemoryStore (implementation)
 ```
 
-Los handlers nunca acceden directamente al repositorio. El servicio contiene toda la lógica de negocio y validación. El repositorio es una interfaz que se puede intercambiar (memoria, PostgreSQL, etc.).
+Handlers never access the repository directly. The service contains all business logic and validation. The repository is an interface that can be swapped (memory, PostgreSQL, etc.).
 
 ## API Endpoints
 
-| Método | Ruta                      | Auth | Descripción                          |
+| Method | Route                      | Auth | Description                          |
 |--------|---------------------------|------|--------------------------------------|
-| POST   | `/api/auth/register`      | No   | Registrar nuevo usuario              |
-| POST   | `/api/auth/login`         | No   | Login, devuelve JWT                  |
-| GET    | `/api/transactions`       | Sí   | Listar transacciones (con filtros)   |
-| POST   | `/api/transactions`       | Sí   | Crear transacción                    |
-| GET    | `/api/transactions/{id}`  | Sí   | Obtener una transacción              |
-| PUT    | `/api/transactions/{id}`  | Sí   | Actualizar transacción               |
-| DELETE | `/api/transactions/{id}`  | Sí   | Eliminar transacción                 |
+| POST   | `/api/auth/register`      | No   | Register new user                    |
+| POST   | `/api/auth/login`         | No   | Login, returns JWT                   |
+| GET    | `/api/transactions`       | Yes  | List transactions (with filters)     |
+| POST   | `/api/transactions`       | Yes  | Create transaction                   |
+| GET    | `/api/transactions/{id}`  | Yes  | Get a transaction                    |
+| PUT    | `/api/transactions/{id}`  | Yes  | Update transaction                   |
+| DELETE | `/api/transactions/{id}`  | Yes  | Delete transaction                   |
 | GET    | `/api/health`             | No   | Health check                         |
 
-### Filtros de listado
+### Listing Filters
 
 ```
 GET /api/transactions?type=income&category=food&from=2024-01-01&to=2024-12-31&page=1&limit=10
 ```
 
-| Parámetro  | Tipo   | Descripción                        |
+| Parameter  | Type   | Description                        |
 |------------|--------|------------------------------------|
-| `type`     | string | `income` o `expense`               |
-| `category` | string | Categoría (food, transport, etc.)  |
-| `from`     | string | Fecha inicio (YYYY-MM-DD)          |
-| `to`       | string | Fecha fin (YYYY-MM-DD)             |
-| `page`     | int    | Página (default: 1)                |
-| `limit`    | int    | Resultados por página (default: 10)|
+| `type`     | string | `income` or `expense`              |
+| `category` | string | Category (food, transport, etc.)   |
+| `from`     | string | Start date (YYYY-MM-DD)            |
+| `to`       | string | End date (YYYY-MM-DD)              |
+| `page`     | int    | Page (default: 1)                  |
+| `limit`    | int    | Results per page (default: 10)     |
 
-## Cómo ejecutar
+## How to Run
 
 ```bash
-# Desde la raíz del proyecto
+# From the project root
 cd 03-projects/02-rest-api
 
-# Compilar
+# Build
 go build ./...
 
-# Ejecutar (puerto 8080 por defecto)
+# Run (port 8080 by default)
 go run ./cmd/api/
 
-# Con configuración personalizada
-PORT=3000 JWT_SECRET=mi-clave-secreta go run ./cmd/api/
+# With custom configuration
+PORT=3000 JWT_SECRET=my-secret-key go run ./cmd/api/
 ```
 
-## Ejemplos con curl
+## Examples with curl
 
-### Registrar usuario
+### Register User
 
 ```bash
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "maria@example.com",
-    "password": "secreto123",
-    "name": "María García"
+    "password": "secret123",
+    "name": "Maria Garcia"
   }'
 ```
 
-Respuesta (201):
+Response (201):
 ```json
 {
   "id": "a1b2c3d4...",
   "email": "maria@example.com",
-  "name": "María García"
+  "name": "Maria Garcia"
 }
 ```
 
@@ -123,50 +123,50 @@ curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "maria@example.com",
-    "password": "secreto123"
+    "password": "secret123"
   }'
 ```
 
-Respuesta (200):
+Response (200):
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
     "id": "a1b2c3d4...",
     "email": "maria@example.com",
-    "name": "María García"
+    "name": "Maria Garcia"
   }
 }
 ```
 
-### Crear transacción
+### Create Transaction
 
 ```bash
 curl -X POST http://localhost:8080/api/transactions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <tu-token-jwt>" \
+  -H "Authorization: Bearer <your-jwt-token>" \
   -d '{
     "type": "expense",
     "amount": 45.50,
     "category": "food",
-    "description": "Cena en restaurante",
+    "description": "Dinner at restaurant",
     "date": "2024-06-15"
   }'
 ```
 
-### Listar transacciones con filtros
+### List Transactions with Filters
 
 ```bash
-# Todas las transacciones
+# All transactions
 curl http://localhost:8080/api/transactions \
-  -H "Authorization: Bearer <tu-token-jwt>"
+  -H "Authorization: Bearer <your-jwt-token>"
 
-# Solo gastos de comida del último mes
+# Only food expenses from the last month
 curl "http://localhost:8080/api/transactions?type=expense&category=food&from=2024-06-01&to=2024-06-30" \
-  -H "Authorization: Bearer <tu-token-jwt>"
+  -H "Authorization: Bearer <your-jwt-token>"
 ```
 
-Respuesta (200):
+Response (200):
 ```json
 {
   "data": [
@@ -176,7 +176,7 @@ Respuesta (200):
       "type": "expense",
       "amount": 45.50,
       "category": "food",
-      "description": "Cena en restaurante",
+      "description": "Dinner at restaurant",
       "date": "2024-06-15T00:00:00Z",
       "created_at": "2024-06-15T20:30:00Z"
     }
@@ -188,32 +188,32 @@ Respuesta (200):
 }
 ```
 
-### Actualizar transacción
+### Update Transaction
 
 ```bash
 curl -X PUT http://localhost:8080/api/transactions/<id> \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <tu-token-jwt>" \
+  -H "Authorization: Bearer <your-jwt-token>" \
   -d '{
     "amount": 50.00,
     "category": "restaurant"
   }'
 ```
 
-### Eliminar transacción
+### Delete Transaction
 
 ```bash
 curl -X DELETE http://localhost:8080/api/transactions/<id> \
-  -H "Authorization: Bearer <tu-token-jwt>"
+  -H "Authorization: Bearer <your-jwt-token>"
 ```
 
-### Health check
+### Health Check
 
 ```bash
 curl http://localhost:8080/api/health
 ```
 
-Respuesta (200):
+Response (200):
 ```json
 {
   "status": "ok",
@@ -222,53 +222,53 @@ Respuesta (200):
 }
 ```
 
-## Cómo ejecutar los tests
+## How to Run Tests
 
 ```bash
-# Todos los tests
+# All tests
 go test ./...
 
-# Con verbose
+# With verbose
 go test -v ./...
 
-# Solo tests del JWT
+# Only JWT tests
 go test -v ./pkg/jwt/
 
-# Solo tests del repositorio
+# Only repository tests
 go test -v ./internal/repository/
 
-# Con cobertura
+# With coverage
 go test -cover ./...
 ```
 
-## Patrones que demuestra
+## Patterns Demonstrated
 
 ### Clean Architecture
-- **Separación de capas**: handler (HTTP) → service (negocio) → repository (datos)
-- **Inversión de dependencias**: los servicios dependen de interfaces, no de implementaciones
-- **Domain models**: los tipos del dominio no dependen de la capa HTTP ni de la base de datos
+- **Layer separation**: handler (HTTP) -> service (business) -> repository (data)
+- **Dependency inversion**: services depend on interfaces, not implementations
+- **Domain models**: domain types do not depend on the HTTP layer or the database
 
 ### Stdlib Mastery
-- **Go 1.22+ ServeMux**: routing basado en método (`"GET /api/transactions/{id}"`)
-- **JWT desde cero**: implementación HS256 con `crypto/hmac` + `crypto/sha256`
-- **Password hashing**: SHA-256 con salt aleatorio usando `crypto/rand`
-- **Graceful shutdown**: `signal.Notify` + `server.Shutdown` con timeout
+- **Go 1.22+ ServeMux**: method-based routing (`"GET /api/transactions/{id}"`)
+- **JWT from scratch**: HS256 implementation with `crypto/hmac` + `crypto/sha256`
+- **Password hashing**: SHA-256 with random salt using `crypto/rand`
+- **Graceful shutdown**: `signal.Notify` + `server.Shutdown` with timeout
 
-### Patrones de diseño
-- **Dependency Injection**: constructores que reciben interfaces (`NewTransactionService(repo)`)
-- **Middleware Chain**: Recovery → CORS → Logging → Auth (composición funcional)
-- **Repository Pattern**: interfaz + implementación intercambiable
+### Design Patterns
+- **Dependency Injection**: constructors that receive interfaces (`NewTransactionService(repo)`)
+- **Middleware Chain**: Recovery -> CORS -> Logging -> Auth (functional composition)
+- **Repository Pattern**: interface + swappable implementation
 - **Constructor Pattern**: `NewXxxService`, `NewXxxHandler`, `NewXxxRepository`
 
-### Concurrencia
-- **sync.RWMutex**: el store en memoria usa read-write locks para acceso concurrente seguro
-- **context.Context**: propagación de contexto en toda la cadena de llamadas
+### Concurrency
+- **sync.RWMutex**: the in-memory store uses read-write locks for safe concurrent access
+- **context.Context**: context propagation throughout the call chain
 
-## Cómo extender con base de datos real
+## How to Extend with a Real Database
 
-El proyecto está diseñado para intercambiar el store fácilmente gracias a las interfaces:
+The project is designed to easily swap the store thanks to interfaces:
 
-1. **Crear implementación PostgreSQL**:
+1. **Create a PostgreSQL implementation**:
    ```go
    // internal/repository/postgres.go
    type PostgresTransactionRepository struct {
@@ -282,24 +282,24 @@ El proyecto está diseñado para intercambiar el store fácilmente gracias a las
        )
        return err
    }
-   // ... implementar el resto de métodos de la interfaz
+   // ... implement the rest of the interface methods
    ```
 
-2. **Cambiar el wiring en main.go**:
+2. **Change the wiring in main.go**:
    ```go
-   // Antes (in-memory):
+   // Before (in-memory):
    txRepo := repository.NewMemoryTransactionRepository()
 
-   // Después (PostgreSQL):
+   // After (PostgreSQL):
    db, _ := sql.Open("postgres", os.Getenv("DATABASE_URL"))
    txRepo := repository.NewPostgresTransactionRepository(db)
    ```
 
-3. **El resto del código no cambia** — los servicios y handlers siguen funcionando exactamente igual porque dependen de la interfaz, no de la implementación.
+3. **The rest of the code does not change** — services and handlers continue to work exactly the same because they depend on the interface, not the implementation.
 
-## Variables de entorno
+## Environment Variables
 
-| Variable     | Default                                      | Descripción              |
+| Variable     | Default                                      | Description              |
 |-------------|----------------------------------------------|--------------------------|
-| `PORT`      | `8080`                                       | Puerto del servidor      |
-| `JWT_SECRET`| `super-secret-key-cambiar-en-produccion`     | Clave secreta para JWT   |
+| `PORT`      | `8080`                                       | Server port              |
+| `JWT_SECRET`| `super-secret-key-change-in-production`      | Secret key for JWT       |

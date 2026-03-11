@@ -1,58 +1,58 @@
-# Coding Challenges — Algoritmos Idiomaticos en Go
+# Coding Challenges — Idiomatic Go Algorithms
 
-Problemas clasicos de algoritmos y estructuras de datos resueltos de forma **idiomatica en Go**, no "Java traducido a Go".
+Classic algorithm and data structure problems solved **idiomatically in Go**, not "Java translated to Go".
 
-## Enfoque
+## Approach
 
-En entrevistas con Go, los entrevistadores buscan:
+In Go interviews, interviewers look for:
 
-1. **Uso correcto de slices, maps, y la standard library**: no reinventar lo que ya existe.
-2. **Codigo limpio y legible**: Go prioriza la claridad sobre la cleverness.
-3. **Manejo de edge cases**: nil inputs, slices vacios, strings vacios.
-4. **Complejidad algoritmica**: saber explicar Big-O de tiempo y espacio.
-5. **Idiomatic Go**: nombrado corto, error handling explicito, zero values utiles.
+1. **Correct use of slices, maps, and the standard library**: don't reinvent what already exists.
+2. **Clean and readable code**: Go prioritizes clarity over cleverness.
+3. **Handling of edge cases**: nil inputs, empty slices, empty strings.
+4. **Algorithmic complexity**: being able to explain Big-O for time and space.
+5. **Idiomatic Go**: short naming, explicit error handling, useful zero values.
 
-## Estructura
+## Structure
 
-- **`challenges.go`**: 10 funciones con `panic("TODO")`. Tu tarea es implementarlas.
-- **`challenges_test.go`**: tests completos con table-driven tests y edge cases. Ejecuta con `go test`.
-- **`solutions.go.txt`**: soluciones completas con explicaciones. Renombralo a `solutions.go` y borra `challenges.go` para verificar que los tests pasan.
+- **`challenges.go`**: 10 functions with `panic("TODO")`. Your task is to implement them.
+- **`challenges_test.go`**: complete tests with table-driven tests and edge cases. Run with `go test`.
+- **`solutions.go.txt`**: complete solutions with explanations. Rename it to `solutions.go` and delete `challenges.go` to verify that the tests pass.
 
 ## Challenges
 
-| # | Funcion | Descripcion | Dificultad |
+| # | Function | Description | Difficulty |
 |---|---|---|---|
-| 1 | `TwoSum` | Encontrar dos numeros que sumen un target | Facil |
-| 2 | `ValidParentheses` | Verificar brackets balanceados | Facil |
-| 3 | `MergeSortedArrays` | Fusionar dos arrays ordenados | Facil |
-| 4 | `ReverseLinkedList` | Invertir una linked list | Facil |
-| 5 | `LRUCache` | Implementar cache LRU con Get/Put | Media |
-| 6 | `MaxSubarraySum` | Subarray con suma maxima (Kadane) | Media |
-| 7 | `BinarySearch` | Busqueda binaria clasica | Facil |
-| 8 | `LevelOrderTraversal` | BFS en arbol binario | Media |
-| 9 | `IsAnagram` | Verificar si dos strings son anagramas | Facil |
-| 10 | `TopKFrequent` | K elementos mas frecuentes | Media |
+| 1 | `TwoSum` | Find two numbers that add up to a target | Easy |
+| 2 | `ValidParentheses` | Verify balanced brackets | Easy |
+| 3 | `MergeSortedArrays` | Merge two sorted arrays | Easy |
+| 4 | `ReverseLinkedList` | Reverse a linked list | Easy |
+| 5 | `LRUCache` | Implement an LRU cache with Get/Put | Medium |
+| 6 | `MaxSubarraySum` | Subarray with maximum sum (Kadane) | Medium |
+| 7 | `BinarySearch` | Classic binary search | Easy |
+| 8 | `LevelOrderTraversal` | BFS on a binary tree | Medium |
+| 9 | `IsAnagram` | Verify if two strings are anagrams | Easy |
+| 10 | `TopKFrequent` | K most frequent elements | Medium |
 
-## Como Usar
+## How to Use
 
 ```bash
-# Ejecutar tests (fallaran hasta que implementes las soluciones)
+# Run tests (they will fail until you implement the solutions)
 cd 02-interview-prep/coding-challenges
 go test -v
 
-# Ver que tests fallan
+# See which tests fail
 go test -v -run TestTwoSum
 
-# Usar las soluciones para verificar
+# Use the solutions to verify
 cp solutions.go.txt solutions.go
 rm challenges.go
 go test -v
 ```
 
-## Consejos para Entrevistas
+## Interview Tips
 
-- **Empieza por los edge cases**: que pasa con input vacio? nil? un solo elemento?
-- **Explica tu enfoque antes de codear**: "Voy a usar un hash map para O(1) lookup..."
-- **Menciona la complejidad**: "Esto es O(n) en tiempo y O(n) en espacio."
-- **Usa el zero value**: en Go, el zero value de un `map[K]V` al acceder una key inexistente es el zero value de V. Aprovechalo.
-- **Nombra bien**: `i, j` para indices, `n` para tamano, `ok` para booleanos de existencia.
+- **Start with edge cases**: what happens with empty input? nil? a single element?
+- **Explain your approach before coding**: "I'm going to use a hash map for O(1) lookup..."
+- **Mention the complexity**: "This is O(n) in time and O(n) in space."
+- **Use the zero value**: in Go, the zero value of a `map[K]V` when accessing a non-existent key is the zero value of V. Take advantage of it.
+- **Name well**: `i, j` for indices, `n` for size, `ok` for existence booleans.

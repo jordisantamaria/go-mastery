@@ -1,12 +1,12 @@
-# Proyecto 4: Microservices Platform
+# Project 4: Microservices Platform
 
-Plataforma de microservicios que demuestra arquitectura distribuida en Go usando solo la biblioteca estandar. Usa `net/rpc` en lugar de gRPC para mantener el proyecto sin dependencias externas, demostrando los mismos patrones: comunicacion entre servicios, API gateway, health checks y apagado graceful.
+Microservices platform that demonstrates distributed architecture in Go using only the standard library. Uses `net/rpc` instead of gRPC to keep the project free of external dependencies, demonstrating the same patterns: inter-service communication, API gateway, health checks, and graceful shutdown.
 
-## Arquitectura
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Cliente (curl/browser)                    │
+│                        Client (curl/browser)                     │
 │                              │                                   │
 │                         HTTP REST                                │
 │                              │                                   │
@@ -24,7 +24,7 @@ Plataforma de microservicios que demuestra arquitectura distribuida en Go usando
 │              │ (net/rpc)   │   │ (net/rpc)       │               │
 │              └─────────────┘   └────────┬────────┘               │
 │                                         │                        │
-│                                    RPC  │ (valida usuario)       │
+│                                    RPC  │ (validates user)       │
 │                                         │                        │
 │              ┌──────────────────────────▼┐                       │
 │              │       UserService         │                       │
@@ -32,129 +32,129 @@ Plataforma de microservicios que demuestra arquitectura distribuida en Go usando
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Flujo de datos:**
-1. El cliente envia peticiones REST al API Gateway (:8080)
-2. El Gateway traduce REST a llamadas RPC hacia los servicios backend
-3. OrderService valida la existencia del usuario llamando a UserService via RPC
-4. Cada servicio tiene almacenamiento en memoria con sync.RWMutex
+**Data flow:**
+1. The client sends REST requests to the API Gateway (:8080)
+2. The Gateway translates REST to RPC calls to the backend services
+3. OrderService validates the user's existence by calling UserService via RPC
+4. Each service has in-memory storage with sync.RWMutex
 
-## Estructura del proyecto
+## Project Structure
 
 ```
 04-microservices/
-├── go.mod                      # Modulo Go (sin dependencias externas)
-├── Dockerfile                  # Multi-stage build para los 3 servicios
-├── docker-compose.yml          # Orquestacion de contenedores
+├── go.mod                      # Go module (no external dependencies)
+├── Dockerfile                  # Multi-stage build for all 3 services
+├── docker-compose.yml          # Container orchestration
 ├── cmd/
-│   ├── userservice/main.go     # Entrypoint del servicio de usuarios
-│   ├── orderservice/main.go    # Entrypoint del servicio de pedidos
-│   └── gateway/main.go         # Entrypoint del API Gateway
+│   ├── userservice/main.go     # User service entrypoint
+│   ├── orderservice/main.go    # Order service entrypoint
+│   └── gateway/main.go         # API Gateway entrypoint
 ├── internal/
-│   ├── userservice/            # Logica del servicio de usuarios
-│   ├── orderservice/           # Logica del servicio de pedidos
-│   └── gateway/                # Logica del gateway REST → RPC
+│   ├── userservice/            # User service logic
+│   ├── orderservice/           # Order service logic
+│   └── gateway/                # Gateway logic REST → RPC
 ├── pkg/
-│   ├── model/                  # Tipos compartidos (User, Order)
+│   ├── model/                  # Shared types (User, Order)
 │   ├── health/                 # Health checks
-│   ├── discovery/              # Registro de servicios
-│   └── middleware/             # Middlewares HTTP (logging, recovery)
+│   ├── discovery/              # Service registry
+│   └── middleware/             # HTTP middlewares (logging, recovery)
 └── scripts/
-    └── test.sh                 # Script para probar todos los endpoints
+    └── test.sh                 # Script to test all endpoints
 ```
 
-## Como ejecutar
+## How to Run
 
-### Opcion 1: Localmente (3 terminales)
+### Option 1: Locally (3 terminals)
 
 **Terminal 1 - UserService:**
 ```bash
 go run ./cmd/userservice
-# Salida: {"level":"INFO","msg":"UserService iniciado","addr":":50051"}
+# Output: {"level":"INFO","msg":"UserService started","addr":":50051"}
 ```
 
 **Terminal 2 - OrderService:**
 ```bash
 go run ./cmd/orderservice
-# Salida: {"level":"INFO","msg":"OrderService iniciado","addr":":50052","user_service_addr":"localhost:50051"}
+# Output: {"level":"INFO","msg":"OrderService started","addr":":50052","user_service_addr":"localhost:50051"}
 ```
 
 **Terminal 3 - API Gateway:**
 ```bash
 go run ./cmd/gateway
-# Salida: {"level":"INFO","msg":"API Gateway iniciado","addr":":8080",...}
+# Output: {"level":"INFO","msg":"API Gateway started","addr":":8080",...}
 ```
 
-### Opcion 2: Docker Compose
+### Option 2: Docker Compose
 
 ```bash
 docker compose up --build
 ```
 
-Para detener:
+To stop:
 ```bash
 docker compose down
 ```
 
-### Variables de entorno
+### Environment Variables
 
-| Variable             | Defecto          | Descripcion                       |
+| Variable             | Default          | Description                       |
 |----------------------|------------------|-----------------------------------|
-| `USER_SERVICE_ADDR`  | `:50051`         | Direccion del UserService         |
-| `ORDER_SERVICE_ADDR` | `:50052`         | Direccion del OrderService        |
-| `GATEWAY_ADDR`       | `:8080`          | Direccion del API Gateway         |
+| `USER_SERVICE_ADDR`  | `:50051`         | UserService address               |
+| `ORDER_SERVICE_ADDR` | `:50052`         | OrderService address              |
+| `GATEWAY_ADDR`       | `:8080`          | API Gateway address               |
 
-## API REST
+## REST API
 
-### Usuarios
+### Users
 
 ```bash
-# Crear usuario
+# Create user
 curl -X POST http://localhost:8080/api/users \
   -H "Content-Type: application/json" \
   -d '{"name":"Ana Garcia","email":"ana@example.com"}'
 
-# Listar usuarios
+# List users
 curl http://localhost:8080/api/users
 
-# Obtener usuario por ID
+# Get user by ID
 curl http://localhost:8080/api/users/{id}
 
-# Actualizar usuario
+# Update user
 curl -X PUT http://localhost:8080/api/users/{id} \
   -H "Content-Type: application/json" \
   -d '{"name":"Ana Garcia Martinez","email":"ana.garcia@example.com"}'
 
-# Eliminar usuario
+# Delete user
 curl -X DELETE http://localhost:8080/api/users/{id}
 ```
 
-### Pedidos
+### Orders
 
 ```bash
-# Crear pedido (valida que el usuario exista)
+# Create order (validates that the user exists)
 curl -X POST http://localhost:8080/api/orders \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "{user_id}",
     "items": [
-      {"product_id":"p1","name":"Teclado","quantity":1,"price":49.99},
-      {"product_id":"p2","name":"Raton","quantity":2,"price":19.99}
+      {"product_id":"p1","name":"Keyboard","quantity":1,"price":49.99},
+      {"product_id":"p2","name":"Mouse","quantity":2,"price":19.99}
     ]
   }'
 
-# Obtener pedido por ID
+# Get order by ID
 curl http://localhost:8080/api/orders/{id}
 
-# Listar pedidos de un usuario
+# List orders for a user
 curl http://localhost:8080/api/users/{user_id}/orders
 
-# Actualizar estado del pedido
+# Update order status
 curl -X PUT http://localhost:8080/api/orders/{id}/status \
   -H "Content-Type: application/json" \
   -d '{"status":"confirmed"}'
 ```
 
-**Transiciones de estado validas:**
+**Valid state transitions:**
 ```
 pending → confirmed → shipped → delivered
 pending → cancelled
@@ -168,81 +168,81 @@ curl http://localhost:8080/health
 # {"status":"healthy","services":[{"service":"user-service","status":"healthy"},{"service":"order-service","status":"healthy"}]}
 ```
 
-## Script de pruebas
+## Test Script
 
 ```bash
 chmod +x scripts/test.sh
 ./scripts/test.sh
-# O con un host personalizado:
-./scripts/test.sh http://mi-host:9090
+# Or with a custom host:
+./scripts/test.sh http://my-host:9090
 ```
 
-## Tests unitarios
+## Unit Tests
 
 ```bash
 go test ./...
 ```
 
-Los tests cubren:
-- **UserService:** CRUD completo, validaciones, emails duplicados
-- **OrderService:** Creacion con validacion de usuario (mock), transiciones de estado
-- **Gateway:** Tests de integracion que levantan servicios RPC reales en puertos aleatorios
+Tests cover:
+- **UserService:** full CRUD, validations, duplicate emails
+- **OrderService:** creation with user validation (mock), state transitions
+- **Gateway:** integration tests that spin up real RPC services on random ports
 
-## Patrones demostrados
+## Patterns Demonstrated
 
-| Patron                         | Implementacion                                            |
+| Pattern                         | Implementation                                            |
 |--------------------------------|-----------------------------------------------------------|
-| **API Gateway**                | REST HTTP que traduce a llamadas RPC                      |
-| **Comunicacion inter-servicio**| OrderService valida usuarios via RPC al UserService       |
-| **Service Discovery**          | Registro en memoria (pkg/discovery)                       |
-| **Health Checks**              | Verificacion de conectividad a servicios backend          |
-| **Graceful Shutdown**          | Captura SIGINT/SIGTERM, cierra listeners ordenadamente    |
-| **Middleware chain**           | Logging y recovery aplicados al gateway                   |
-| **Dependency Injection**       | UserValidator como interfaz inyectable en OrderService    |
-| **Maquina de estados**         | Transiciones de estado validadas en pedidos               |
-| **Multi-stage Docker build**   | Imagen final de ~15MB con binarios estaticos              |
-| **Logging estructurado**       | slog con formato JSON para observabilidad                 |
-| **Configuracion por entorno**  | Variables de entorno con defaults sensatos                |
+| **API Gateway**                | REST HTTP that translates to RPC calls                    |
+| **Inter-service communication**| OrderService validates users via RPC to UserService       |
+| **Service Discovery**          | In-memory registry (pkg/discovery)                        |
+| **Health Checks**              | Backend service connectivity verification                 |
+| **Graceful Shutdown**          | Captures SIGINT/SIGTERM, closes listeners in order        |
+| **Middleware chain**           | Logging and recovery applied to the gateway               |
+| **Dependency Injection**       | UserValidator as injectable interface in OrderService      |
+| **State machine**              | Validated state transitions on orders                     |
+| **Multi-stage Docker build**   | Final image of ~15MB with static binaries                 |
+| **Structured logging**         | slog with JSON format for observability                   |
+| **Environment configuration**  | Environment variables with sensible defaults              |
 
-## Equivalencia con gRPC en produccion
+## Equivalence with gRPC in Production
 
-Este proyecto usa `net/rpc` de la stdlib para evitar dependencias externas. En un entorno de produccion se usaria gRPC. Esta tabla muestra la equivalencia:
+This project uses `net/rpc` from the stdlib to avoid external dependencies. In a production environment, gRPC would be used. This table shows the equivalence:
 
-| Concepto              | Este proyecto (net/rpc)          | Produccion (gRPC)                          |
+| Concept              | This project (net/rpc)           | Production (gRPC)                          |
 |-----------------------|----------------------------------|--------------------------------------------|
-| **Definicion de API** | Structs Go como argumentos       | Protocol Buffers (.proto)                  |
-| **Serializacion**     | encoding/gob (binario Go)        | Protocol Buffers (multi-lenguaje)          |
-| **Transporte**        | TCP directo                      | HTTP/2 con multiplexing                    |
-| **Streaming**         | No soportado                     | Streaming unidireccional y bidireccional   |
-| **Code generation**   | No necesario                     | protoc genera stubs cliente/servidor       |
-| **Interceptors**      | No tiene (se implementa manual)  | Interceptors unarios y de streaming        |
-| **Load balancing**    | Manual                           | gRPC tiene LB integrado                    |
-| **Metadata**          | No tiene                         | Headers/trailers para auth, tracing        |
-| **Deadlines**         | Manual con context               | Integrado en el protocolo                  |
-| **Multi-lenguaje**    | Solo Go                          | Go, Java, Python, C++, etc.               |
+| **API definition**    | Go structs as arguments          | Protocol Buffers (.proto)                  |
+| **Serialization**     | encoding/gob (Go binary)         | Protocol Buffers (multi-language)          |
+| **Transport**         | Direct TCP                       | HTTP/2 with multiplexing                   |
+| **Streaming**         | Not supported                    | Unidirectional and bidirectional streaming  |
+| **Code generation**   | Not needed                       | protoc generates client/server stubs       |
+| **Interceptors**      | None (implemented manually)      | Unary and streaming interceptors           |
+| **Load balancing**    | Manual                           | gRPC has built-in LB                       |
+| **Metadata**          | None                             | Headers/trailers for auth, tracing         |
+| **Deadlines**         | Manual with context              | Built into the protocol                    |
+| **Multi-language**    | Go only                          | Go, Java, Python, C++, etc.               |
 
-### Cuando elegir cada uno
+### When to Choose Each
 
-**net/rpc es suficiente cuando:**
-- Todos los servicios estan en Go
-- No necesitas streaming
-- Proyecto personal, prototipos o aprendizaje
-- Quieres cero dependencias externas
+**net/rpc is sufficient when:**
+- All services are in Go
+- You do not need streaming
+- Personal project, prototypes, or learning
+- You want zero external dependencies
 
-**gRPC es necesario cuando:**
-- Servicios en multiples lenguajes
-- Necesitas streaming bidireccional
-- Requieres un contrato de API formal (.proto)
-- Necesitas interceptors avanzados (auth, tracing, metricas)
-- Entorno de produccion con multiples equipos
+**gRPC is necessary when:**
+- Services in multiple languages
+- You need bidirectional streaming
+- You require a formal API contract (.proto)
+- You need advanced interceptors (auth, tracing, metrics)
+- Production environment with multiple teams
 
-## Lo que aprenderas con este proyecto
+## What You Will Learn from This Project
 
-- Descomponer una aplicacion en microservicios independientes
-- Comunicacion sincrona entre servicios via RPC
-- Traducir una API REST publica a llamadas RPC internas
-- Implementar health checks para monitoreo
-- Apagado graceful en servicios concurrentes
-- Docker multi-stage builds para imagenes minimas
-- Inyeccion de dependencias para testing (mock del UserValidator)
-- Configuracion por variables de entorno (12-Factor App)
+- Decomposing an application into independent microservices
+- Synchronous inter-service communication via RPC
+- Translating a public REST API to internal RPC calls
+- Implementing health checks for monitoring
+- Graceful shutdown in concurrent services
+- Docker multi-stage builds for minimal images
+- Dependency injection for testing (UserValidator mock)
+- Configuration via environment variables (12-Factor App)

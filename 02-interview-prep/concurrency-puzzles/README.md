@@ -1,12 +1,12 @@
-# Concurrency Puzzles — Trampas y Patrones
+# Concurrency Puzzles — Traps and Patterns
 
-Ejercicios practicos para dominar la concurrencia en Go. Cada puzzle presenta codigo con un bug de concurrencia. Tu tarea es identificar el problema, explicarlo, y proponer la solucion correcta.
+Practical exercises to master concurrency in Go. Each puzzle presents code with a concurrency bug. Your task is to identify the problem, explain it, and propose the correct solution.
 
 ---
 
-## Tabla de Contenidos
+## Table of Contents
 
-1. [Trampas Comunes de Concurrencia](#trampas-comunes-de-concurrencia)
+1. [Common Concurrency Traps](#common-concurrency-traps)
 2. [Puzzle 1: Race Condition Detection](#puzzle-1-race-condition-detection)
 3. [Puzzle 2: Deadlock](#puzzle-2-deadlock)
 4. [Puzzle 3: Goroutine Leak](#puzzle-3-goroutine-leak)
@@ -18,30 +18,30 @@ Ejercicios practicos para dominar la concurrencia en Go. Cada puzzle presenta co
 
 ---
 
-## Trampas Comunes de Concurrencia
+## Common Concurrency Traps
 
-Antes de los puzzles, estas son las trampas mas frecuentes que causan bugs de concurrencia en Go:
+Before the puzzles, these are the most frequent traps that cause concurrency bugs in Go:
 
 ### 1. Data Races
-Acceder a memoria compartida sin sincronizacion. Go tiene el race detector (`go run -race`) que detecta esto en runtime, pero solo cubre las rutas de codigo que realmente se ejecutan.
+Accessing shared memory without synchronization. Go has the race detector (`go run -race`) that detects this at runtime, but it only covers code paths that are actually executed.
 
 ### 2. Goroutine Leaks
-Goroutines que quedan bloqueadas para siempre esperando en un canal o lock que nunca se libera. Son el equivalente a memory leaks pero para goroutines. Herramientas como `goleak` ayudan a detectarlas en tests.
+Goroutines that remain blocked forever waiting on a channel or lock that is never released. They are the equivalent of memory leaks but for goroutines. Tools like `goleak` help detect them in tests.
 
 ### 3. Deadlocks
-Dos o mas goroutines esperandose mutuamente, creando un ciclo de dependencias. El runtime de Go detecta cuando **todas** las goroutines estan bloqueadas (`fatal error: all goroutines are asleep`), pero no detecta deadlocks parciales.
+Two or more goroutines waiting for each other, creating a dependency cycle. The Go runtime detects when **all** goroutines are blocked (`fatal error: all goroutines are asleep`), but does not detect partial deadlocks.
 
 ### 4. Starvation
-Una goroutine nunca obtiene acceso a un recurso porque otras goroutines lo acaparan. Comun con `sync.Mutex` bajo alta contencion.
+A goroutine never gets access to a resource because other goroutines monopolize it. Common with `sync.Mutex` under high contention.
 
 ### 5. Premature Closure
-Cerrar un canal o cancelar un context antes de que todos los consumidores hayan terminado.
+Closing a channel or cancelling a context before all consumers have finished.
 
 ---
 
 ## Puzzle 1: Race Condition Detection
 
-### Codigo con Bug
+### Buggy Code
 
 ```go
 package main
@@ -59,22 +59,22 @@ func main() {
         wg.Add(1)
         go func() {
             defer wg.Done()
-            counter++ // DATA RACE: acceso concurrente sin sincronizacion
+            counter++ // DATA RACE: concurrent access without synchronization
         }()
     }
 
     wg.Wait()
-    fmt.Println("Counter:", counter) // Resultado impredecible, casi nunca 1000
+    fmt.Println("Counter:", counter) // Unpredictable result, almost never 1000
 }
 ```
 
-### Pregunta
-Que esta mal en este codigo? Como lo arreglarias? Proporciona al menos tres formas diferentes.
+### Question
+What is wrong with this code? How would you fix it? Provide at least three different ways.
 
-### Explicacion del Problema
-1000 goroutines acceden a la variable `counter` simultaneamente sin sincronizacion. `counter++` no es atomico — implica leer, incrementar y escribir. Dos goroutines pueden leer el mismo valor, incrementarlo, y escribir el mismo resultado, perdiendo un incremento.
+### Problem Explanation
+1000 goroutines access the `counter` variable simultaneously without synchronization. `counter++` is not atomic — it involves reading, incrementing, and writing. Two goroutines can read the same value, increment it, and write the same result, losing an increment.
 
-Ejecutar con `go run -race main.go` reporta el data race.
+Running with `go run -race main.go` reports the data race.
 
 ### Fix 1: sync.Mutex
 
@@ -102,7 +102,7 @@ func main() {
     }
 
     wg.Wait()
-    fmt.Println("Counter:", counter) // Siempre 1000
+    fmt.Println("Counter:", counter) // Always 1000
 }
 ```
 
@@ -118,7 +118,7 @@ func main() {
     done := make(chan struct{})
     increment := make(chan struct{}, 1000)
 
-    // Una sola goroutine gestiona el counter (confinamiento)
+    // A single goroutine manages the counter (confinement)
     go func() {
         for range increment {
             counter++
@@ -131,7 +131,7 @@ func main() {
     }
     close(increment)
     <-done
-    fmt.Println("Counter:", counter) // Siempre 1000
+    fmt.Println("Counter:", counter) // Always 1000
 }
 ```
 
@@ -154,23 +154,23 @@ func main() {
         wg.Add(1)
         go func() {
             defer wg.Done()
-            counter.Add(1) // Operacion atomica, sin lock
+            counter.Add(1) // Atomic operation, no lock
         }()
     }
 
     wg.Wait()
-    fmt.Println("Counter:", counter.Load()) // Siempre 1000
+    fmt.Println("Counter:", counter.Load()) // Always 1000
 }
 ```
 
 ### Takeaway
-Para contadores simples, `sync/atomic` es la opcion mas eficiente. Para logica mas compleja, `sync.Mutex`. El patron de canal (confinamiento) es preferible cuando se puede disenar el flujo de datos sin estado compartido.
+For simple counters, `sync/atomic` is the most efficient option. For more complex logic, `sync.Mutex`. The channel pattern (confinement) is preferable when you can design the data flow without shared state.
 
 ---
 
 ## Puzzle 2: Deadlock
 
-### Codigo con Bug
+### Buggy Code
 
 ```go
 package main
@@ -181,37 +181,37 @@ func main() {
     ch1 := make(chan int)
     ch2 := make(chan int)
 
-    // Goroutine A: envia a ch1, luego recibe de ch2
+    // Goroutine A: sends to ch1, then receives from ch2
     go func() {
-        ch1 <- 1     // bloquea esperando receptor en ch1
-        val := <-ch2  // nunca llega aqui
-        fmt.Println("A recibio:", val)
+        ch1 <- 1     // blocks waiting for receiver on ch1
+        val := <-ch2  // never reaches here
+        fmt.Println("A received:", val)
     }()
 
-    // Goroutine B: envia a ch2, luego recibe de ch1
+    // Goroutine B: sends to ch2, then receives from ch1
     go func() {
-        ch2 <- 2     // bloquea esperando receptor en ch2
-        val := <-ch1  // nunca llega aqui
-        fmt.Println("B recibio:", val)
+        ch2 <- 2     // blocks waiting for receiver on ch2
+        val := <-ch1  // never reaches here
+        fmt.Println("B received:", val)
     }()
 
-    // Main espera (sin select o sincronizacion)
+    // Main waits (without select or synchronization)
     select {}
 }
 ```
 
-### Pregunta
-Por que este codigo genera un deadlock? Como lo arreglarias?
+### Question
+Why does this code produce a deadlock? How would you fix it?
 
-### Explicacion del Problema
-Ambas goroutines intentan **enviar** en canales unbuffered antes de **recibir**:
-- Goroutine A bloquea en `ch1 <- 1` esperando que alguien reciba de ch1.
-- Goroutine B bloquea en `ch2 <- 2` esperando que alguien reciba de ch2.
-- Nadie recibe de ninguno de los dos canales. Deadlock circular.
+### Problem Explanation
+Both goroutines try to **send** on unbuffered channels before **receiving**:
+- Goroutine A blocks on `ch1 <- 1` waiting for someone to receive from ch1.
+- Goroutine B blocks on `ch2 <- 2` waiting for someone to receive from ch2.
+- Nobody receives from either channel. Circular deadlock.
 
-En este caso el runtime detecta que todas las goroutines estan dormidas y lanza: `fatal error: all goroutines are asleep - deadlock!`
+In this case the runtime detects that all goroutines are asleep and throws: `fatal error: all goroutines are asleep - deadlock!`
 
-### Codigo Corregido
+### Fixed Code
 
 ```go
 package main
@@ -222,31 +222,31 @@ func main() {
     ch1 := make(chan int)
     ch2 := make(chan int)
 
-    // Goroutine A: recibe de ch2, luego envia a ch1
+    // Goroutine A: receives from ch2, then sends to ch1
     go func() {
-        val := <-ch2 // primero recibe
-        fmt.Println("A recibio:", val)
-        ch1 <- 1 // luego envia
+        val := <-ch2 // first receives
+        fmt.Println("A received:", val)
+        ch1 <- 1 // then sends
     }()
 
-    // Goroutine B: envia a ch2, luego recibe de ch1
+    // Goroutine B: sends to ch2, then receives from ch1
     go func() {
-        ch2 <- 2     // envia a ch2 (A lo recibe)
-        val := <-ch1  // recibe de ch1 (A lo envia)
-        fmt.Println("B recibio:", val)
+        ch2 <- 2     // sends to ch2 (A receives it)
+        val := <-ch1  // receives from ch1 (A sends it)
+        fmt.Println("B received:", val)
     }()
 
-    // Necesitamos esperar a que terminen
-    // Una forma simple: usar un done channel
+    // We need to wait for them to finish
+    // A simple way: use a done channel
     done := make(chan struct{}, 2)
-    // (En un codigo real usariamos sync.WaitGroup, aqui simplificamos)
+    // (In real code we would use sync.WaitGroup, here we simplify)
 
     ch1Bis := make(chan int)
     ch2Bis := make(chan int)
 
     go func() {
         val := <-ch2Bis
-        fmt.Println("A recibio:", val)
+        fmt.Println("A received:", val)
         ch1Bis <- 1
         done <- struct{}{}
     }()
@@ -254,7 +254,7 @@ func main() {
     go func() {
         ch2Bis <- 2
         val := <-ch1Bis
-        fmt.Println("B recibio:", val)
+        fmt.Println("B received:", val)
         done <- struct{}{}
     }()
 
@@ -263,7 +263,7 @@ func main() {
 }
 ```
 
-**Alternativa mas limpia con select:**
+**Cleaner alternative with buffered channels:**
 
 ```go
 package main
@@ -271,22 +271,22 @@ package main
 import "fmt"
 
 func main() {
-    ch1 := make(chan int, 1) // buffered — el send no bloquea
-    ch2 := make(chan int, 1) // buffered — el send no bloquea
+    ch1 := make(chan int, 1) // buffered — send does not block
+    ch2 := make(chan int, 1) // buffered — send does not block
 
     done := make(chan struct{})
 
     go func() {
         ch1 <- 1
         val := <-ch2
-        fmt.Println("A recibio:", val)
+        fmt.Println("A received:", val)
         done <- struct{}{}
     }()
 
     go func() {
         ch2 <- 2
         val := <-ch1
-        fmt.Println("B recibio:", val)
+        fmt.Println("B received:", val)
         done <- struct{}{}
     }()
 
@@ -296,13 +296,13 @@ func main() {
 ```
 
 ### Takeaway
-Para evitar deadlocks: (1) evitar dependencias circulares entre canales, (2) usar canales con buffer cuando es apropiado, (3) establecer un orden consistente de acquire/release, (4) usar `select` con `default` o timeout como escape.
+To avoid deadlocks: (1) avoid circular dependencies between channels, (2) use buffered channels when appropriate, (3) establish a consistent acquire/release order, (4) use `select` with `default` or timeout as an escape.
 
 ---
 
 ## Puzzle 3: Goroutine Leak
 
-### Codigo con Bug
+### Buggy Code
 
 ```go
 package main
@@ -323,11 +323,11 @@ func fetchFirst(urls []string) string {
                 return
             }
             defer resp.Body.Close()
-            ch <- u // Las goroutines perdedoras quedan bloqueadas aqui PARA SIEMPRE
+            ch <- u // The losing goroutines remain blocked here FOREVER
         }(url)
     }
 
-    return <-ch // Solo recibe el primero, las demas goroutines quedan leakeadas
+    return <-ch // Only receives the first, the rest are leaked
 }
 
 func main() {
@@ -336,18 +336,18 @@ func main() {
         "https://httpbin.org/delay/2",
         "https://httpbin.org/delay/3",
     })
-    fmt.Println("Primer resultado:", result)
-    time.Sleep(5 * time.Second) // Las goroutines leakeadas siguen vivas
+    fmt.Println("First result:", result)
+    time.Sleep(5 * time.Second) // The leaked goroutines are still alive
 }
 ```
 
-### Pregunta
-Donde esta el leak de goroutines? Como lo prevenirias?
+### Question
+Where is the goroutine leak? How would you prevent it?
 
-### Explicacion del Problema
-Se lanzan N goroutines, pero solo se consume **un** resultado del canal `ch` (que es unbuffered). Las N-1 goroutines restantes quedan bloqueadas permanentemente en `ch <- u` porque nadie mas recibe del canal. Estas goroutines nunca terminan y su memoria nunca se libera.
+### Problem Explanation
+N goroutines are launched, but only **one** result is consumed from channel `ch` (which is unbuffered). The N-1 remaining goroutines remain permanently blocked on `ch <- u` because nobody else receives from the channel. These goroutines never finish and their memory is never freed.
 
-### Codigo Corregido
+### Fixed Code
 
 ```go
 package main
@@ -360,9 +360,9 @@ import (
 
 func fetchFirst(ctx context.Context, urls []string) string {
     ctx, cancel := context.WithCancel(ctx)
-    defer cancel() // Cancela todas las goroutines restantes
+    defer cancel() // Cancel all remaining goroutines
 
-    ch := make(chan string, len(urls)) // Buffer para todas las goroutines
+    ch := make(chan string, len(urls)) // Buffer for all goroutines
 
     for _, url := range urls {
         go func(u string) {
@@ -372,14 +372,14 @@ func fetchFirst(ctx context.Context, urls []string) string {
             }
             resp, err := http.DefaultClient.Do(req)
             if err != nil {
-                return // Context cancelado o error de red
+                return // Context cancelled or network error
             }
             defer resp.Body.Close()
 
             select {
             case ch <- u:
             case <-ctx.Done():
-                return // No bloquear si ya tenemos resultado
+                return // Don't block if we already have a result
             }
         }(url)
     }
@@ -393,24 +393,24 @@ func main() {
         "https://httpbin.org/delay/2",
         "https://httpbin.org/delay/3",
     })
-    fmt.Println("Primer resultado:", result)
-    // Todas las goroutines terminaran gracias a context cancellation
+    fmt.Println("First result:", result)
+    // All goroutines will terminate thanks to context cancellation
 }
 ```
 
-**Puntos clave del fix:**
-1. Canal con buffer (`len(urls)`) para que los sends no bloqueen.
-2. `context.WithCancel` para cancelar las requests HTTP pendientes.
-3. `select` con `ctx.Done()` para que las goroutines no se queden bloqueadas.
+**Key points of the fix:**
+1. Buffered channel (`len(urls)`) so that sends do not block.
+2. `context.WithCancel` to cancel pending HTTP requests.
+3. `select` with `ctx.Done()` so goroutines do not get stuck.
 
 ### Takeaway
-Siempre asegurate de que cada goroutine tiene una forma de terminar. Usa `context.Context` para cancelacion, canales con buffer adecuado, y `select` con casos de salida. La libreria `go.uber.org/goleak` puede detectar leaks en tests.
+Always make sure every goroutine has a way to terminate. Use `context.Context` for cancellation, channels with adequate buffer, and `select` with exit cases. The `go.uber.org/goleak` library can detect leaks in tests.
 
 ---
 
 ## Puzzle 4: Channel Direction Bug
 
-### Codigo con Bug
+### Buggy Code
 
 ```go
 package main
@@ -428,7 +428,7 @@ func consumer(ch chan int) {
     for val := range ch {
         fmt.Println(val)
     }
-    ch <- 99 // BUG: el consumer esta enviando al canal despues de consumir
+    ch <- 99 // BUG: the consumer is sending to the channel after consuming
 }
 
 func main() {
@@ -439,54 +439,54 @@ func main() {
 }
 ```
 
-### Pregunta
-Cual es el bug? Como lo arreglarias usando channel directions?
+### Question
+What is the bug? How would you fix it using channel directions?
 
-### Explicacion del Problema
-El consumer envia un valor al canal (`ch <- 99`) despues de que el producer lo ha cerrado. Enviar a un canal cerrado causa `panic: send on closed channel`. Ademas, conceptualmente, un consumer no deberia enviar al canal de entrada.
+### Problem Explanation
+The consumer sends a value to the channel (`ch <- 99`) after the producer has closed it. Sending to a closed channel causes `panic: send on closed channel`. Additionally, conceptually, a consumer should not send to the input channel.
 
-El problema real es que no hay restricciones de tipo en los canales — ambas funciones reciben `chan int`, que permite tanto enviar como recibir.
+The real problem is that there are no type restrictions on the channels — both functions receive `chan int`, which allows both sending and receiving.
 
-### Codigo Corregido
+### Fixed Code
 
 ```go
 package main
 
 import "fmt"
 
-// ch <-chan int: solo puede RECIBIR (receive-only)
-// ch chan<- int: solo puede ENVIAR (send-only)
+// ch <-chan int: can only RECEIVE (receive-only)
+// ch chan<- int: can only SEND (send-only)
 
-func producer(ch chan<- int) { // send-only: solo puede enviar
+func producer(ch chan<- int) { // send-only: can only send
     for i := 0; i < 5; i++ {
         ch <- i
     }
-    close(ch) // close solo es valido en send-only o bidireccional
+    close(ch) // close is only valid on send-only or bidirectional
 }
 
-func consumer(ch <-chan int) { // receive-only: solo puede recibir
+func consumer(ch <-chan int) { // receive-only: can only receive
     for val := range ch {
         fmt.Println(val)
     }
-    // ch <- 99 // ERROR DE COMPILACION: no se puede enviar en receive-only channel
+    // ch <- 99 // COMPILE ERROR: cannot send on receive-only channel
 }
 
 func main() {
     ch := make(chan int)
 
-    go producer(ch) // chan int se convierte automaticamente a chan<- int
-    consumer(ch)    // chan int se convierte automaticamente a <-chan int
+    go producer(ch) // chan int is automatically converted to chan<- int
+    consumer(ch)    // chan int is automatically converted to <-chan int
 }
 ```
 
 ### Takeaway
-Siempre usa channel directions en las firmas de funciones. El compilador previene errores en tiempo de compilacion. Regla: `chan<-` para el productor (send-only), `<-chan` para el consumidor (receive-only). Solo `close()` desde el lado del productor.
+Always use channel directions in function signatures. The compiler prevents errors at compile time. Rule: `chan<-` for the producer (send-only), `<-chan` for the consumer (receive-only). Only `close()` from the producer side.
 
 ---
 
 ## Puzzle 5: Closure in Loop
 
-### Codigo con Bug
+### Buggy Code
 
 ```go
 package main
@@ -504,7 +504,7 @@ func main() {
         wg.Add(1)
         go func() {
             defer wg.Done()
-            fmt.Println(v) // BUG: todas las goroutines capturan la MISMA variable v
+            fmt.Println(v) // BUG: all goroutines capture the SAME variable v
         }()
     }
 
@@ -512,11 +512,11 @@ func main() {
 }
 ```
 
-### Pregunta
-Cual es el output probable? Por que? Como se arregla?
+### Question
+What is the probable output? Why? How do you fix it?
 
-### Explicacion del Problema
-**En Go < 1.22**: la variable `v` del range loop es una **unica variable** que se reutiliza en cada iteracion. Todas las goroutines capturan un puntero a la misma variable. Cuando las goroutines se ejecutan, `v` ya tiene el ultimo valor (`"e"`), asi que la salida tipica es:
+### Problem Explanation
+**In Go < 1.22**: the `v` variable from the range loop is a **single variable** that is reused on each iteration. All goroutines capture a pointer to the same variable. When the goroutines execute, `v` already has the last value (`"e"`), so the typical output is:
 
 ```
 e
@@ -526,57 +526,57 @@ e
 e
 ```
 
-**En Go 1.22+**: Go cambio la semantica de loop variables. Ahora cada iteracion crea una nueva variable, asi que este codigo funciona correctamente. Sin embargo, es fundamental entender el problema para:
-- Mantener codigo legacy.
-- Entrevistas (pregunta clasica).
-- Otros lenguajes con closures similares.
+**In Go 1.22+**: Go changed the semantics of loop variables. Now each iteration creates a new variable, so this code works correctly. However, it is fundamental to understand the problem for:
+- Maintaining legacy code.
+- Interviews (classic question).
+- Other languages with similar closures.
 
-### Codigo Corregido (compatible con todas las versiones)
+### Fixed Code (compatible with all versions)
 
-**Fix 1: Parametro en la goroutine**
+**Fix 1: Parameter in the goroutine**
 ```go
 for _, v := range values {
     wg.Add(1)
-    go func(val string) { // val es una copia local
+    go func(val string) { // val is a local copy
         defer wg.Done()
         fmt.Println(val)
-    }(v) // se pasa v como argumento (se copia)
+    }(v) // v is passed as argument (copied)
 }
 ```
 
-**Fix 2: Variable local en el loop (pre-Go 1.22)**
+**Fix 2: Local variable in the loop (pre-Go 1.22)**
 ```go
 for _, v := range values {
-    v := v // shadow: crea una nueva variable local por iteracion
+    v := v // shadow: creates a new local variable per iteration
     wg.Add(1)
     go func() {
         defer wg.Done()
-        fmt.Println(v) // captura la variable local, no la del loop
+        fmt.Println(v) // captures the local variable, not the loop's
     }()
 }
 ```
 
-**Fix 3: Go 1.22+ (sin cambios necesarios)**
+**Fix 3: Go 1.22+ (no changes needed)**
 ```go
-// Con Go 1.22+, el codigo original funciona correctamente.
-// Cada iteracion del loop crea una nueva variable v.
+// With Go 1.22+, the original code works correctly.
+// Each iteration of the loop creates a new variable v.
 for _, v := range values {
     wg.Add(1)
     go func() {
         defer wg.Done()
-        fmt.Println(v) // OK en Go 1.22+
+        fmt.Println(v) // OK in Go 1.22+
     }()
 }
 ```
 
 ### Takeaway
-En Go < 1.22, las closures dentro de loops capturan la variable del loop por referencia (comparten la misma variable). Siempre pasar como parametro o hacer shadow con `v := v`. En Go 1.22+ esto se resolvio a nivel del lenguaje, pero sigue siendo una pregunta de entrevista fundamental.
+In Go < 1.22, closures inside loops capture the loop variable by reference (they share the same variable). Always pass as a parameter or shadow with `v := v`. In Go 1.22+ this was resolved at the language level, but it remains a fundamental interview question.
 
 ---
 
 ## Puzzle 6: Select Priority
 
-### Codigo con Bug
+### Buggy Code
 
 ```go
 package main
@@ -590,53 +590,53 @@ func main() {
     ch1 := make(chan string, 1)
     ch2 := make(chan string, 1)
 
-    ch1 <- "uno"
-    ch2 <- "dos"
+    ch1 <- "one"
+    ch2 <- "two"
 
-    // Ambos canales tienen datos listos
+    // Both channels have data ready
     select {
     case msg := <-ch1:
-        fmt.Println("Recibido de ch1:", msg)
+        fmt.Println("Received from ch1:", msg)
     case msg := <-ch2:
-        fmt.Println("Recibido de ch2:", msg)
+        fmt.Println("Received from ch2:", msg)
     }
 
-    // Pregunta: siempre se ejecuta ch1 porque esta primero?
+    // Question: does ch1 always execute because it comes first?
 }
 ```
 
-### Pregunta
-Cual case se ejecuta? Es determinista?
+### Question
+Which case executes? Is it deterministic?
 
-### Explicacion del Problema
-**No es determinista**. Cuando multiples cases de un `select` estan listos simultaneamente, Go elige uno **al azar** (pseudo-aleatorio uniforme). No hay prioridad basada en el orden de los cases.
+### Problem Explanation
+**It is not deterministic**. When multiple `select` cases are ready simultaneously, Go chooses one **at random** (uniform pseudo-random). There is no priority based on the order of cases.
 
-Ejecutar este codigo multiples veces dara resultados diferentes:
+Running this code multiple times will give different results:
 ```
 $ go run main.go
-Recibido de ch1: uno
+Received from ch1: one
 $ go run main.go
-Recibido de ch2: dos
+Received from ch2: two
 $ go run main.go
-Recibido de ch1: uno
+Received from ch1: one
 ```
 
-**Razon de diseno**: evitar starvation. Si el primer case siempre tuviera prioridad, los canales listados despues podrian nunca ser atendidos.
+**Design reason**: to avoid starvation. If the first case always had priority, channels listed after it might never be served.
 
-### Como Implementar Prioridad Real
+### How to Implement Real Priority
 
-Si necesitas prioridad, usa `select` anidados:
+If you need priority, use nested `select`:
 
 ```go
 func prioritySelect(high <-chan string, low <-chan string) string {
-    // Primero intentar el canal de alta prioridad
+    // First try the high-priority channel
     select {
     case msg := <-high:
         return msg
     default:
     }
 
-    // Si high no esta listo, esperar cualquiera
+    // If high is not ready, wait for either
     select {
     case msg := <-high:
         return msg
@@ -646,7 +646,7 @@ func prioritySelect(high <-chan string, low <-chan string) string {
 }
 ```
 
-**Alternativa robusta con loop:**
+**Robust alternative with loop:**
 ```go
 func processWithPriority(ctx context.Context, high, low <-chan string) {
     for {
@@ -670,13 +670,13 @@ func processWithPriority(ctx context.Context, high, low <-chan string) {
 ```
 
 ### Takeaway
-`select` con multiples cases listos elige al azar — no hay prioridad por orden. Para prioridad real, usa `select` anidados con `default`. Ten en cuenta que el patron de prioridad no es perfecto bajo alta carga — puede haber casos donde se procese un mensaje de baja prioridad antes que uno de alta.
+`select` with multiple ready cases chooses at random — there is no priority by order. For real priority, use nested `select` with `default`. Keep in mind that the priority pattern is not perfect under high load — there may be cases where a low-priority message is processed before a high-priority one.
 
 ---
 
 ## Puzzle 7: Context Cancellation
 
-### Codigo con Bug
+### Buggy Code
 
 ```go
 package main
@@ -688,11 +688,11 @@ import (
 )
 
 func longRunningTask(ctx context.Context) string {
-    // Simula trabajo pesado que NO revisa el contexto
+    // Simulates heavy work that does NOT check the context
     result := ""
     for i := 0; i < 10; i++ {
-        time.Sleep(500 * time.Millisecond) // No revisa ctx.Done()
-        result += fmt.Sprintf("paso-%d ", i)
+        time.Sleep(500 * time.Millisecond) // Does not check ctx.Done()
+        result += fmt.Sprintf("step-%d ", i)
     }
     return result
 }
@@ -702,18 +702,18 @@ func main() {
     defer cancel()
 
     result := longRunningTask(ctx)
-    fmt.Println("Resultado:", result)
-    // La tarea toma 5 segundos aunque el timeout es de 1 segundo!
+    fmt.Println("Result:", result)
+    // The task takes 5 seconds even though the timeout is 1 second!
 }
 ```
 
-### Pregunta
-Por que la cancelacion del contexto no funciona?
+### Question
+Why doesn't the context cancellation work?
 
-### Explicacion del Problema
-El contexto `ctx` se pasa como parametro pero **nunca se revisa dentro de la funcion**. `context.Context` es cooperativo — no mata goroutines magicamente. El codigo dentro de la funcion debe revisar activamente `ctx.Done()` o `ctx.Err()` para reaccionar a la cancelacion.
+### Problem Explanation
+The `ctx` context is passed as a parameter but **is never checked inside the function**. `context.Context` is cooperative — it does not magically kill goroutines. The code inside the function must actively check `ctx.Done()` or `ctx.Err()` to react to cancellation.
 
-### Codigo Corregido
+### Fixed Code
 
 ```go
 package main
@@ -727,15 +727,15 @@ import (
 func longRunningTask(ctx context.Context) (string, error) {
     result := ""
     for i := 0; i < 10; i++ {
-        // Revisar cancelacion ANTES de cada paso
+        // Check cancellation BEFORE each step
         select {
         case <-ctx.Done():
-            return result, ctx.Err() // Retornar lo que se tiene + error
+            return result, ctx.Err() // Return what we have + error
         default:
         }
 
         time.Sleep(500 * time.Millisecond)
-        result += fmt.Sprintf("paso-%d ", i)
+        result += fmt.Sprintf("step-%d ", i)
     }
     return result, nil
 }
@@ -746,15 +746,15 @@ func main() {
 
     result, err := longRunningTask(ctx)
     if err != nil {
-        fmt.Println("Cancelado:", err)
-        fmt.Println("Resultado parcial:", result)
+        fmt.Println("Cancelled:", err)
+        fmt.Println("Partial result:", result)
         return
     }
-    fmt.Println("Resultado completo:", result)
+    fmt.Println("Complete result:", result)
 }
 ```
 
-**Version mas idiomatica usando select con timer:**
+**More idiomatic version using select with timer:**
 ```go
 func longRunningTask(ctx context.Context) (string, error) {
     result := ""
@@ -763,7 +763,7 @@ func longRunningTask(ctx context.Context) (string, error) {
         case <-ctx.Done():
             return result, ctx.Err()
         case <-time.After(500 * time.Millisecond):
-            result += fmt.Sprintf("paso-%d ", i)
+            result += fmt.Sprintf("step-%d ", i)
         }
     }
     return result, nil
@@ -771,13 +771,13 @@ func longRunningTask(ctx context.Context) (string, error) {
 ```
 
 ### Takeaway
-`context.Context` es cooperativo. Toda funcion que recibe un context debe revisarlo periodicamente. Patrones clave: (1) `select` con `ctx.Done()` en loops, (2) pasar el context a funciones downstream (HTTP requests, DB queries), (3) retornar `ctx.Err()` cuando se detecta cancelacion.
+`context.Context` is cooperative. Every function that receives a context must check it periodically. Key patterns: (1) `select` with `ctx.Done()` in loops, (2) pass the context to downstream functions (HTTP requests, DB queries), (3) return `ctx.Err()` when cancellation is detected.
 
 ---
 
 ## Puzzle 8: WaitGroup Misuse
 
-### Codigo con Bug
+### Buggy Code
 
 ```go
 package main
@@ -792,31 +792,31 @@ func main() {
 
     for i := 0; i < 5; i++ {
         go func(n int) {
-            wg.Add(1) // BUG: Add dentro de la goroutine
+            wg.Add(1) // BUG: Add inside the goroutine
             defer wg.Done()
             fmt.Println("Worker:", n)
         }(i)
     }
 
-    wg.Wait() // Puede terminar ANTES de que todas las goroutines hagan Add
-    fmt.Println("Todos terminaron") // Mentira — puede que no
+    wg.Wait() // May finish BEFORE all goroutines call Add
+    fmt.Println("All finished") // Lie — maybe not
 }
 ```
 
-### Pregunta
-Que esta mal? Por que el output es inconsistente?
+### Question
+What is wrong? Why is the output inconsistent?
 
-### Explicacion del Problema
-`wg.Add(1)` se llama **dentro** de la goroutine, pero `wg.Wait()` se llama en main. Hay una race condition:
+### Problem Explanation
+`wg.Add(1)` is called **inside** the goroutine, but `wg.Wait()` is called in main. There is a race condition:
 
-1. Main lanza las goroutines y llega a `wg.Wait()`.
-2. Si ninguna goroutine ha ejecutado `wg.Add(1)` todavia, el counter del WaitGroup es 0.
-3. `wg.Wait()` retorna inmediatamente (counter == 0).
-4. Main termina, matando a las goroutines que ni siquiera empezaron.
+1. Main launches the goroutines and reaches `wg.Wait()`.
+2. If no goroutine has executed `wg.Add(1)` yet, the WaitGroup counter is 0.
+3. `wg.Wait()` returns immediately (counter == 0).
+4. Main exits, killing goroutines that haven't even started.
 
-El resultado es que algunas (o todas) las goroutines no imprimen nada.
+The result is that some (or all) goroutines print nothing.
 
-### Codigo Corregido
+### Fixed Code
 
 ```go
 package main
@@ -830,60 +830,60 @@ func main() {
     var wg sync.WaitGroup
 
     for i := 0; i < 5; i++ {
-        wg.Add(1) // CORRECTO: Add ANTES de lanzar la goroutine
+        wg.Add(1) // CORRECT: Add BEFORE launching the goroutine
         go func(n int) {
             defer wg.Done()
             fmt.Println("Worker:", n)
         }(i)
     }
 
-    wg.Wait() // Ahora espera a que las 5 goroutines terminen
-    fmt.Println("Todos terminaron")
+    wg.Wait() // Now waits for all 5 goroutines to finish
+    fmt.Println("All finished")
 }
 ```
 
-### Reglas del WaitGroup
+### WaitGroup Rules
 
 ```go
-// CORRECTO: Add antes de go
+// CORRECT: Add before go
 wg.Add(1)
 go worker(&wg)
 
-// INCORRECTO: Add dentro de la goroutine
+// INCORRECT: Add inside the goroutine
 go func() {
-    wg.Add(1) // race con wg.Wait()
+    wg.Add(1) // race with wg.Wait()
     defer wg.Done()
     // ...
 }()
 
-// CORRECTO: Add con el total antes del loop
+// CORRECT: Add with total before the loop
 wg.Add(len(items))
 for _, item := range items {
     go process(item, &wg)
 }
 
-// INCORRECTO: Done sin Add previo (panic: negative WaitGroup counter)
+// INCORRECT: Done without prior Add (panic: negative WaitGroup counter)
 wg.Done() // panic!
 
-// INCORRECTO: reusar WaitGroup antes de que Wait retorne
+// INCORRECT: reusing WaitGroup before Wait returns
 wg.Wait()
-wg.Add(1) // OK solo si Wait ya retorno completamente
+wg.Add(1) // OK only if Wait has fully returned
 ```
 
 ### Takeaway
-**Siempre llamar a `wg.Add()` antes de lanzar la goroutine**, nunca dentro. El patron correcto es: Add -> go func -> defer Done. Alternativamente, hacer un solo `wg.Add(n)` con el total antes del loop.
+**Always call `wg.Add()` before launching the goroutine**, never inside. The correct pattern is: Add -> go func -> defer Done. Alternatively, do a single `wg.Add(n)` with the total before the loop.
 
 ---
 
-## Resumen de Patrones
+## Summary of Patterns
 
-| Puzzle | Bug | Solucion Principal |
+| Puzzle | Bug | Main Solution |
 |---|---|---|
-| 1. Race Condition | Acceso concurrente sin sync | `sync.Mutex`, `atomic`, o confinamiento |
-| 2. Deadlock | Dependencia circular en canales | Cambiar orden, usar buffer, o `select` |
-| 3. Goroutine Leak | Goroutines bloqueadas en sends | Buffer adecuado + `context.Context` |
-| 4. Channel Direction | Consumer enviando a canal | Usar `<-chan` y `chan<-` en firmas |
-| 5. Closure in Loop | Variable compartida del loop | Parametro, shadow, o Go 1.22+ |
-| 6. Select Priority | Asumir orden en `select` | `select` anidado para prioridad real |
-| 7. Context Cancellation | No revisar `ctx.Done()` | `select` periodico con `ctx.Done()` |
-| 8. WaitGroup | `Add` dentro de goroutine | `Add` antes de `go func()` |
+| 1. Race Condition | Concurrent access without sync | `sync.Mutex`, `atomic`, or confinement |
+| 2. Deadlock | Circular dependency in channels | Change order, use buffer, or `select` |
+| 3. Goroutine Leak | Goroutines blocked on sends | Adequate buffer + `context.Context` |
+| 4. Channel Direction | Consumer sending to channel | Use `<-chan` and `chan<-` in signatures |
+| 5. Closure in Loop | Shared loop variable | Parameter, shadow, or Go 1.22+ |
+| 6. Select Priority | Assuming order in `select` | Nested `select` for real priority |
+| 7. Context Cancellation | Not checking `ctx.Done()` | Periodic `select` with `ctx.Done()` |
+| 8. WaitGroup | `Add` inside goroutine | `Add` before `go func()` |

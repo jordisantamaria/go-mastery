@@ -2,17 +2,17 @@
 
 > "Do not communicate by sharing memory; instead, share memory by communicating." — Go Proverbs
 
-Concurrencia es la caracteristica mas potente de Go y la mas preguntada en entrevistas. Go fue diseñado desde cero para concurrencia.
+Concurrency is Go's most powerful feature and the most asked about in interviews. Go was designed from the ground up for concurrency.
 
-**Concurrencia vs Paralelismo**:
-- **Concurrencia**: estructurar un programa como tareas independientes que se pueden ejecutar en cualquier orden
-- **Paralelismo**: ejecutar multiples tareas simultaneamente en multiples CPUs
+**Concurrency vs Parallelism**:
+- **Concurrency**: structuring a program as independent tasks that can execute in any order
+- **Parallelism**: executing multiple tasks simultaneously on multiple CPUs
 
-Go te da concurrencia. El runtime decide si ademas hay paralelismo (depende de los cores disponibles).
+Go gives you concurrency. The runtime decides whether there is also parallelism (depends on available cores).
 
 ## Goroutines
 
-Una goroutine es un **hilo ligero** gestionado por el runtime de Go (no por el OS):
+A goroutine is a **lightweight thread** managed by the Go runtime (not by the OS):
 
 ```go
 func sayHello(name string) {
@@ -20,10 +20,10 @@ func sayHello(name string) {
 }
 
 func main() {
-    go sayHello("World")  // lanza goroutine — NO espera
-    go sayHello("Go")     // lanza otra
+    go sayHello("World")  // launches goroutine — does NOT wait
+    go sayHello("Go")     // launches another
 
-    time.Sleep(time.Millisecond) // sin esto, main termina antes de que ejecuten
+    time.Sleep(time.Millisecond) // without this, main exits before they execute
 }
 ```
 
@@ -31,109 +31,109 @@ func main() {
 
 | | Goroutine | OS Thread |
 |---|---|---|
-| **Memoria inicial** | ~2 KB (stack crece dinamicamente) | ~1 MB (fijo) |
-| **Creacion** | ~microsegundos | ~milisegundos |
+| **Initial memory** | ~2 KB (stack grows dynamically) | ~1 MB (fixed) |
+| **Creation** | ~microseconds | ~milliseconds |
 | **Scheduling** | Go runtime (user-space) | OS kernel |
-| **Cantidad tipica** | Miles o millones | Cientos |
-| **Context switch** | ~nanosegundos | ~microsegundos |
+| **Typical count** | Thousands or millions | Hundreds |
+| **Context switch** | ~nanoseconds | ~microseconds |
 
-> Puedes lanzar **100.000 goroutines** sin problemas. Intentar lo mismo con OS threads crashearia tu sistema.
+> You can launch **100,000 goroutines** without problems. Trying the same with OS threads would crash your system.
 
-### El modelo GMP (importante para entrevista)
+### The GMP model (important for interviews)
 
-El scheduler de Go usa el modelo **G-M-P**:
+Go's scheduler uses the **G-M-P** model:
 
 ```
-G = Goroutine       (la tarea)
-M = Machine/Thread  (OS thread real)
-P = Processor       (contexto de ejecucion, por defecto = num CPUs)
+G = Goroutine       (the task)
+M = Machine/Thread  (actual OS thread)
+P = Processor       (execution context, default = num CPUs)
 
     P0          P1          P2          P3
     |           |           |           |
     M0          M1          M2          M3
     |           |           |           |
    [G1]       [G2]       [G3]       [G4]
-   [G5]       [G6]       [G7]       [G8]   <- run queues locales
+   [G5]       [G6]       [G7]       [G8]   <- local run queues
     ...         ...
                     [G9, G10, G11...]      <- global run queue
 ```
 
-- Cada **P** tiene una cola local de goroutines
-- Cuando una cola se vacia, el P "roba" trabajo de otro P (**work stealing**)
-- `GOMAXPROCS` controla cuantos P hay (default = num CPUs)
+- Each **P** has a local queue of goroutines
+- When a queue is empty, the P "steals" work from another P (**work stealing**)
+- `GOMAXPROCS` controls how many Ps there are (default = num CPUs)
 
 ## Channels
 
-Los channels son el mecanismo principal de comunicacion entre goroutines:
+Channels are the primary communication mechanism between goroutines:
 
 ```go
-// Crear un channel
+// Create a channel
 ch := make(chan int)    // unbuffered
-ch := make(chan int, 5) // buffered (capacidad 5)
+ch := make(chan int, 5) // buffered (capacity 5)
 
-// Enviar
+// Send
 ch <- 42
 
-// Recibir
+// Receive
 value := <-ch
 
-// Cerrar (el sender cierra, NUNCA el receiver)
+// Close (the sender closes, NEVER the receiver)
 close(ch)
 ```
 
-### Unbuffered channels (sincronos)
+### Unbuffered channels (synchronous)
 
 ```go
-ch := make(chan int) // sin buffer
+ch := make(chan int) // no buffer
 
 go func() {
-    ch <- 42  // BLOQUEA hasta que alguien reciba
+    ch <- 42  // BLOCKS until someone receives
 }()
 
-value := <-ch  // BLOQUEA hasta que alguien envie
+value := <-ch  // BLOCKS until someone sends
 fmt.Println(value) // 42
 ```
 
-Un unbuffered channel **sincroniza** sender y receiver: ambos se bloquean hasta que el otro esta listo. Es como un handshake.
+An unbuffered channel **synchronizes** sender and receiver: both block until the other is ready. It is like a handshake.
 
-### Buffered channels (asincronos hasta el limite)
+### Buffered channels (asynchronous up to the limit)
 
 ```go
-ch := make(chan int, 3) // buffer de 3
+ch := make(chan int, 3) // buffer of 3
 
-ch <- 1  // no bloquea (1/3)
-ch <- 2  // no bloquea (2/3)
-ch <- 3  // no bloquea (3/3)
-// ch <- 4  // BLOQUEA — buffer lleno, espera a que alguien reciba
+ch <- 1  // does not block (1/3)
+ch <- 2  // does not block (2/3)
+ch <- 3  // does not block (3/3)
+// ch <- 4  // BLOCKS — buffer full, waits for someone to receive
 
 fmt.Println(<-ch) // 1 (FIFO)
 ```
 
-### Cuando usar cada uno
+### When to use each
 
 | Unbuffered | Buffered |
 |---|---|
-| Sincronizacion garantizada | Desacoplamiento sender/receiver |
-| El sender sabe que el receiver recibio | El sender puede seguir sin esperar |
-| Ideal para senales y handshakes | Ideal para rate limiting, batching |
+| Guaranteed synchronization | Decoupling sender/receiver |
+| Sender knows the receiver received | Sender can continue without waiting |
+| Ideal for signals and handshakes | Ideal for rate limiting, batching |
 
-### Direccionalidad (channel types)
+### Directionality (channel types)
 
 ```go
-func producer(out chan<- int) {  // solo puede ENVIAR
+func producer(out chan<- int) {  // can only SEND
     out <- 42
 }
 
-func consumer(in <-chan int) {   // solo puede RECIBIR
+func consumer(in <-chan int) {   // can only RECEIVE
     value := <-in
 }
 
-// El compilador verifica que no uses un send-only channel para recibir
+// The compiler verifies that you don't use a send-only channel to receive
 ```
 
-> Siempre especifica la direccion en las firmas de funciones. Es documentacion gratis y el compilador la verifica.
+> Always specify the direction in function signatures. It is free documentation and the compiler verifies it.
 
-### Iterar sobre un channel (range)
+### Iterating over a channel (range)
 
 ```go
 ch := make(chan int)
@@ -142,27 +142,27 @@ go func() {
     for i := 0; i < 5; i++ {
         ch <- i
     }
-    close(ch) // IMPORTANTE: close para que range termine
+    close(ch) // IMPORTANT: close so that range terminates
 }()
 
 for value := range ch {
     fmt.Println(value) // 0, 1, 2, 3, 4
 }
-// El loop termina cuando el channel se cierra y se vacia
+// The loop terminates when the channel is closed and emptied
 ```
 
-### Comma-ok pattern con channels
+### Comma-ok pattern with channels
 
 ```go
 value, ok := <-ch
 if !ok {
-    fmt.Println("channel cerrado")
+    fmt.Println("channel closed")
 }
 ```
 
 ## Select
 
-`select` es como un switch para channels. Espera a que **alguno** este listo:
+`select` is like a switch for channels. It waits for **any** to be ready:
 
 ```go
 select {
@@ -173,15 +173,15 @@ case msg := <-ch2:
 case ch3 <- "hello":
     fmt.Println("Sent to ch3")
 default:
-    fmt.Println("No channel ready") // no bloquea
+    fmt.Println("No channel ready") // does not block
 }
 ```
 
-- Si multiples channels estan listos, **elige uno al azar** (no deterministico)
-- Sin `default`, bloquea hasta que alguno este listo
-- Con `default`, no bloquea nunca (util para polling)
+- If multiple channels are ready, **one is chosen at random** (non-deterministic)
+- Without `default`, it blocks until one is ready
+- With `default`, it never blocks (useful for polling)
 
-### Select con timeout
+### Select with timeout
 
 ```go
 select {
@@ -192,7 +192,7 @@ case <-time.After(3 * time.Second):
 }
 ```
 
-### Select para done/quit signal
+### Select for done/quit signal
 
 ```go
 func worker(done <-chan struct{}, jobs <-chan int) {
@@ -208,11 +208,11 @@ func worker(done <-chan struct{}, jobs <-chan int) {
 }
 ```
 
-> `chan struct{}` es idiomatico para senales (no lleva datos, ocupa 0 bytes).
+> `chan struct{}` is idiomatic for signals (carries no data, takes 0 bytes).
 
 ## sync.WaitGroup
 
-Esperar a que un grupo de goroutines termine:
+Wait for a group of goroutines to finish:
 
 ```go
 var wg sync.WaitGroup
@@ -220,23 +220,23 @@ var wg sync.WaitGroup
 for i := 0; i < 5; i++ {
     wg.Add(1)
     go func(id int) {
-        defer wg.Done() // decrementa al salir
+        defer wg.Done() // decrements on exit
         fmt.Println("Worker", id)
     }(i)
 }
 
-wg.Wait() // bloquea hasta que el contador llega a 0
+wg.Wait() // blocks until counter reaches 0
 ```
 
-- `Add(n)` — incrementa el contador
-- `Done()` — decrementa (equivalente a `Add(-1)`)
-- `Wait()` — bloquea hasta que el contador sea 0
+- `Add(n)` — increments the counter
+- `Done()` — decrements (equivalent to `Add(-1)`)
+- `Wait()` — blocks until the counter is 0
 
-> **Regla**: llama `Add` ANTES de lanzar la goroutine, no dentro. Si llamas Add dentro de la goroutine, hay una race condition con Wait.
+> **Rule**: call `Add` BEFORE launching the goroutine, not inside. If you call Add inside the goroutine, there is a race condition with Wait.
 
-## sync.Mutex y sync.RWMutex
+## sync.Mutex and sync.RWMutex
 
-Para proteger datos compartidos:
+To protect shared data:
 
 ```go
 type SafeCounter struct {
@@ -257,7 +257,7 @@ func (c *SafeCounter) Value() int {
 }
 ```
 
-### RWMutex — multiples readers, un solo writer
+### RWMutex — multiple readers, a single writer
 
 ```go
 type SafeCache struct {
@@ -266,34 +266,34 @@ type SafeCache struct {
 }
 
 func (c *SafeCache) Get(key string) (string, bool) {
-    c.mu.RLock()         // multiples goroutines pueden leer a la vez
+    c.mu.RLock()         // multiple goroutines can read at once
     defer c.mu.RUnlock()
     val, ok := c.data[key]
     return val, ok
 }
 
 func (c *SafeCache) Set(key, value string) {
-    c.mu.Lock()          // exclusivo — bloquea readers y writers
+    c.mu.Lock()          // exclusive — blocks readers and writers
     defer c.mu.Unlock()
     c.data[key] = value
 }
 ```
 
-> Usa `RWMutex` cuando tienes **muchas mas lecturas que escrituras**. Para el resto, `Mutex` normal.
+> Use `RWMutex` when you have **many more reads than writes**. For everything else, use a regular `Mutex`.
 
-### Mutex vs Channels — cuando usar cada uno
+### Mutex vs Channels — when to use each
 
 | Mutex | Channel |
 |---|---|
-| Proteger un dato compartido | Comunicar entre goroutines |
-| Cache, contadores, mapas | Pipelines, senales, resultados |
-| "Guarda esto" | "Pasa esto" |
+| Protect shared data | Communicate between goroutines |
+| Cache, counters, maps | Pipelines, signals, results |
+| "Guard this" | "Pass this" |
 
-> **Regla practica**: si la operacion es "compartir estado", usa Mutex. Si es "pasar datos entre goroutines", usa channels.
+> **Practical rule**: if the operation is "sharing state", use Mutex. If it is "passing data between goroutines", use channels.
 
 ## sync.Once
 
-Ejecutar algo **exactamente una vez** (thread-safe):
+Execute something **exactly once** (thread-safe):
 
 ```go
 var once sync.Once
@@ -301,28 +301,28 @@ var instance *Database
 
 func GetDB() *Database {
     once.Do(func() {
-        instance = connectToDatabase() // solo se ejecuta 1 vez
+        instance = connectToDatabase() // only executes once
     })
     return instance
 }
 ```
 
-Util para singletons, inicializacion lazy, y setup one-time.
+Useful for singletons, lazy initialization, and one-time setup.
 
 ## context.Context
 
-Context propaga **deadlines, cancellation, y valores** a traves de goroutines:
+Context propagates **deadlines, cancellation, and values** across goroutines:
 
 ```go
-// Crear con timeout
+// Create with timeout
 ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-defer cancel() // SIEMPRE llamar cancel para liberar recursos
+defer cancel() // ALWAYS call cancel to release resources
 
-// Crear con cancelacion manual
+// Create with manual cancellation
 ctx, cancel := context.WithCancel(context.Background())
 defer cancel()
 
-// Verificar cancelacion
+// Check cancellation
 select {
 case <-ctx.Done():
     fmt.Println("Cancelled:", ctx.Err())
@@ -331,79 +331,79 @@ case result := <-doWork(ctx):
 }
 ```
 
-### Context en funciones (patron estandar)
+### Context in functions (standard pattern)
 
 ```go
-// Context SIEMPRE es el primer parametro
+// Context is ALWAYS the first parameter
 func fetchData(ctx context.Context, url string) ([]byte, error) {
     req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
     if err != nil {
         return nil, err
     }
-    // Si el context se cancela, el request se aborta automaticamente
+    // If the context is cancelled, the request is aborted automatically
     resp, err := http.DefaultClient.Do(req)
     // ...
 }
 ```
 
-> **Regla**: Context va siempre como **primer parametro**, nunca en un struct. Esto es una convencion fuerte en Go.
+> **Rule**: Context always goes as the **first parameter**, never in a struct. This is a strong convention in Go.
 
-### Context values (usar con moderacion)
+### Context values (use sparingly)
 
 ```go
 type contextKey string
 
 const userIDKey contextKey = "userID"
 
-// Guardar
+// Store
 ctx := context.WithValue(parentCtx, userIDKey, "user-123")
 
-// Leer
+// Read
 if userID, ok := ctx.Value(userIDKey).(string); ok {
     fmt.Println("User:", userID)
 }
 ```
 
-> Usa context values solo para datos **request-scoped** (user ID, trace ID, etc). Nunca para pasar dependencias o config.
+> Use context values only for **request-scoped** data (user ID, trace ID, etc). Never for passing dependencies or config.
 
 ## Race conditions
 
-Una race condition ocurre cuando multiples goroutines acceden a datos compartidos sin sincronizacion:
+A race condition occurs when multiple goroutines access shared data without synchronization:
 
 ```go
 // BUG: race condition
 counter := 0
 for i := 0; i < 1000; i++ {
     go func() {
-        counter++ // lectura + escritura NO atomica
+        counter++ // read + write is NOT atomic
     }()
 }
-// counter puede ser cualquier valor < 1000
+// counter can be any value < 1000
 ```
 
-### Detectar con -race
+### Detect with -race
 
 ```bash
 go test -race ./...
 go run -race main.go
 ```
 
-El race detector es **imprescindible** durante desarrollo. Detecta accesos concurrentes sin proteccion.
+The race detector is **essential** during development. It detects concurrent access without protection.
 
-### Soluciones a race conditions
+### Solutions to race conditions
 
 ```go
-// Solucion 1: Mutex
+// Solution 1: Mutex
 var mu sync.Mutex
 mu.Lock()
 counter++
 mu.Unlock()
 
-// Solucion 2: Atomic (mas rapido para operaciones simples)
+// Solution 2: Atomic (faster for simple operations)
 var counter int64
 atomic.AddInt64(&counter, 1)
 
-// Solucion 3: Channel (enviar updates a una goroutine controladora)
+// Solution 3: Channel (send updates to a controller goroutine)
 ch := make(chan int)
 go func() {
     count := 0
@@ -414,12 +414,12 @@ go func() {
 ch <- 1
 ```
 
-## Patrones de concurrencia
+## Concurrency patterns
 
 ### Fan-out / Fan-in
 
 ```go
-// Fan-out: distribuir trabajo entre N workers
+// Fan-out: distribute work among N workers
 func fanOut(jobs <-chan int, numWorkers int) []<-chan int {
     workers := make([]<-chan int, numWorkers)
     for i := 0; i < numWorkers; i++ {
@@ -428,7 +428,7 @@ func fanOut(jobs <-chan int, numWorkers int) []<-chan int {
     return workers
 }
 
-// Fan-in: combinar resultados de N channels en uno
+// Fan-in: combine results from N channels into one
 func fanIn(channels ...<-chan int) <-chan int {
     var wg sync.WaitGroup
     merged := make(chan int)
@@ -462,7 +462,7 @@ func workerPool(numWorkers int, jobs <-chan int, results chan<- int) {
         go func(id int) {
             defer wg.Done()
             for job := range jobs {
-                results <- process(job) // cada worker consume del mismo channel
+                results <- process(job) // each worker consumes from the same channel
             }
         }(i)
     }
@@ -476,7 +476,7 @@ func workerPool(numWorkers int, jobs <-chan int, results chan<- int) {
 ### Pipeline
 
 ```go
-// Cada stage es una funcion que lee de un channel y escribe a otro
+// Each stage is a function that reads from a channel and writes to another
 func generate(nums ...int) <-chan int {
     out := make(chan int)
     go func() {
@@ -512,7 +512,7 @@ func filter(in <-chan int, pred func(int) bool) <-chan int {
     return out
 }
 
-// Componer: generate -> square -> filter
+// Compose: generate -> square -> filter
 pipeline := filter(square(generate(1, 2, 3, 4, 5)), func(n int) bool {
     return n > 10
 })
@@ -530,10 +530,10 @@ func main() {
 
     go runServer(ctx)
 
-    <-ctx.Done() // espera Ctrl+C
+    <-ctx.Done() // wait for Ctrl+C
     fmt.Println("Shutting down...")
 
-    // Dar tiempo para cleanup
+    // Give time for cleanup
     shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
     server.Shutdown(shutdownCtx)
@@ -542,25 +542,25 @@ func main() {
 
 ## Deadlocks
 
-Un deadlock ocurre cuando goroutines se bloquean mutuamente esperando una a la otra:
+A deadlock occurs when goroutines block each other waiting for one another:
 
 ```go
-// Deadlock clasico: unbuffered channel sin receiver
+// Classic deadlock: unbuffered channel without receiver
 ch := make(chan int)
-ch <- 1 // bloquea para siempre — nadie recibe
+ch <- 1 // blocks forever — nobody receives
 // fatal error: all goroutines are asleep - deadlock!
 
-// Deadlock por lock ordering
+// Deadlock by lock ordering
 // Goroutine 1: Lock(A), Lock(B)
 // Goroutine 2: Lock(B), Lock(A)
-// -> Se bloquean mutuamente
+// -> They block each other
 ```
 
-Solucion: siempre adquirir locks en el **mismo orden** en todas las goroutines.
+Solution: always acquire locks in the **same order** in all goroutines.
 
 ## errgroup (golang.org/x/sync/errgroup)
 
-Ejecutar goroutines que pueden fallar y recoger el primer error:
+Run goroutines that can fail and collect the first error:
 
 ```go
 import "golang.org/x/sync/errgroup"
@@ -576,40 +576,40 @@ g.Go(func() error {
 })
 
 if err := g.Wait(); err != nil {
-    // err es el primer error que ocurrio
-    // ctx se cancela automaticamente cuando hay error
+    // err is the first error that occurred
+    // ctx is cancelled automatically when there is an error
     log.Fatal(err)
 }
 ```
 
-## Preguntas de entrevista frecuentes
+## Common interview questions
 
-1. **Que es una goroutine y como se diferencia de un thread?**
-   Una goroutine es un hilo ligero gestionado por el runtime de Go (~2KB stack, scheduling en user-space). Un OS thread ocupa ~1MB y es gestionado por el kernel. Puedes tener millones de goroutines pero solo cientos de threads.
+1. **What is a goroutine and how does it differ from a thread?**
+   A goroutine is a lightweight thread managed by the Go runtime (~2KB stack, scheduling in user-space). An OS thread takes ~1MB and is managed by the kernel. You can have millions of goroutines but only hundreds of threads.
 
-2. **Explica el modelo GMP del scheduler de Go.**
-   G=Goroutine, M=Machine (OS thread), P=Processor (contexto). Cada P tiene una cola local de Gs. Los Ms ejecutan Gs a traves de Ps. Cuando una cola se vacia, un P puede "robar" trabajo de otro (work stealing). GOMAXPROCS controla cuantos Ps hay.
+2. **Explain the GMP model of Go's scheduler.**
+   G=Goroutine, M=Machine (OS thread), P=Processor (context). Each P has a local queue of Gs. Ms execute Gs through Ps. When a queue is empty, a P can "steal" work from another (work stealing). GOMAXPROCS controls how many Ps there are.
 
-3. **Diferencia entre buffered y unbuffered channel?**
-   Unbuffered: sender y receiver se bloquean hasta que el otro esta listo (sincronizacion). Buffered: sender solo bloquea si el buffer esta lleno, receiver solo bloquea si esta vacio (desacoplamiento).
+3. **Difference between buffered and unbuffered channel?**
+   Unbuffered: sender and receiver block until the other is ready (synchronization). Buffered: sender only blocks if the buffer is full, receiver only blocks if it is empty (decoupling).
 
-4. **Cuando usarias Mutex vs Channel?**
-   Mutex: para proteger datos compartidos (caches, contadores, mapas). Channel: para comunicar datos entre goroutines (pipelines, resultados, senales). "Compartir estado" -> Mutex. "Pasar datos" -> Channel.
+4. **When would you use Mutex vs Channel?**
+   Mutex: to protect shared data (caches, counters, maps). Channel: to communicate data between goroutines (pipelines, results, signals). "Sharing state" -> Mutex. "Passing data" -> Channel.
 
-5. **Que es una race condition y como la detectas?**
-   Acceso concurrente a datos compartidos sin sincronizacion. Se detecta con `go test -race` o `go run -race`. Soluciones: Mutex, atomic operations, o channels.
+5. **What is a race condition and how do you detect it?**
+   Concurrent access to shared data without synchronization. Detected with `go test -race` or `go run -race`. Solutions: Mutex, atomic operations, or channels.
 
-6. **Que pasa si escribes a un channel cerrado?**
-   **Panic**. Leer de un channel cerrado devuelve el zero value inmediatamente. Por eso, **solo el sender debe cerrar** el channel.
+6. **What happens if you write to a closed channel?**
+   **Panic**. Reading from a closed channel returns the zero value immediately. That is why **only the sender should close** the channel.
 
-7. **Que es context.Context y para que se usa?**
-   Propaga deadlines, cancelacion, y valores request-scoped a traves del arbol de goroutines. Siempre es el primer parametro. Se usa para timeouts en HTTP, cancelar operaciones largas, y pasar datos como trace IDs.
+7. **What is context.Context and what is it used for?**
+   Propagates deadlines, cancellation, and request-scoped values through the goroutine tree. It is always the first parameter. Used for HTTP timeouts, cancelling long operations, and passing data like trace IDs.
 
-8. **Explica el patron fan-out/fan-in.**
-   Fan-out: distribuir trabajo de un channel entre N workers (goroutines). Fan-in: combinar los resultados de N channels en un solo channel. Permite paralelizar CPU-bound o I/O-bound work.
+8. **Explain the fan-out/fan-in pattern.**
+   Fan-out: distribute work from one channel among N workers (goroutines). Fan-in: combine results from N channels into a single channel. Allows parallelizing CPU-bound or I/O-bound work.
 
-9. **Como harias un graceful shutdown?**
-   Capturar la senal OS (SIGINT/SIGTERM) con signal.NotifyContext, propagar la cancelacion via context, dar tiempo a las goroutines para terminar con un deadline, y cerrar recursos (DB, HTTP server) ordenadamente.
+9. **How would you implement a graceful shutdown?**
+   Capture the OS signal (SIGINT/SIGTERM) with signal.NotifyContext, propagate cancellation via context, give goroutines time to finish with a deadline, and close resources (DB, HTTP server) in an orderly fashion.
 
-10. **Que es un goroutine leak y como se previene?**
-    Una goroutine que se bloquea para siempre (esperando un channel que nadie cierra, un lock que nadie libera). Se previene con context cancellation, timeouts, y asegurandose de que todo channel tenga un close path.
+10. **What is a goroutine leak and how is it prevented?**
+    A goroutine that blocks forever (waiting on a channel that nobody closes, a lock that nobody releases). It is prevented with context cancellation, timeouts, and ensuring every channel has a close path.

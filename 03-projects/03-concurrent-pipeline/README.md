@@ -1,8 +1,8 @@
-# Proyecto 3: Pipeline Concurrente de Datos
+# Project 3: Concurrent Data Pipeline
 
-Pipeline de procesamiento de datos de ventas que demuestra dominio de patrones de concurrencia en Go. Procesa archivos CSV en paralelo a traves de etapas conectadas por canales, calcula impuestos por region y genera reportes agregados.
+Data processing pipeline for sales data that demonstrates mastery of concurrency patterns in Go. Processes CSV files in parallel through stages connected by channels, calculates taxes by region, and generates aggregated reports.
 
-## Arquitectura del Pipeline
+## Pipeline Architecture
 
 ```
                               fan-out (N workers)
@@ -13,14 +13,14 @@ CSV ─── [Reader] ──► chan ──├─── Worker 2 ───├�
                                                          [Writer] ──► CSV
 ```
 
-### Flujo de datos
+### Data Flow
 
-1. **Reader** (`reader.go`) — Lee el CSV linea por linea y envia `SaleRecord` a un canal. Salta filas mal formadas sin detener el pipeline.
-2. **Transformer** (`transformer.go`) — N workers concurrentes consumen registros del canal (fan-out), calculan totales e impuestos, y envian `ProcessedRecord` al siguiente canal. Coordinados con `sync.WaitGroup`.
-3. **Aggregator** (`aggregator.go`) — Recibe todos los registros procesados (fan-in) y construye un `Summary` con totales por categoria, region y top productos.
-4. **Writer** (`writer.go`) — Escribe los registros procesados a un CSV de salida, o imprime el resumen por stdout.
+1. **Reader** (`reader.go`) — Reads the CSV line by line and sends `SaleRecord` to a channel. Skips malformed rows without stopping the pipeline.
+2. **Transformer** (`transformer.go`) — N concurrent workers consume records from the channel (fan-out), calculate totals and taxes, and send `ProcessedRecord` to the next channel. Coordinated with `sync.WaitGroup`.
+3. **Aggregator** (`aggregator.go`) — Receives all processed records (fan-in) and builds a `Summary` with totals by category, region, and top products.
+4. **Writer** (`writer.go`) — Writes the processed records to an output CSV, or prints the summary to stdout.
 
-### Canales y coordinacion
+### Channels and Coordination
 
 ```
 saleRecords (buffered)      processedRecords (buffered)     writerCh (buffered)
@@ -28,83 +28,83 @@ saleRecords (buffered)      processedRecords (buffered)     writerCh (buffered)
          close(out)              close(out) via WaitGroup       close(out)
 ```
 
-- Cada etapa cierra su canal de salida cuando termina
-- Los errores se reportan por un canal dedicado (no bloqueante)
-- Soporta cancelacion graceful via `context.Context`
-- Senales SIGINT/SIGTERM disparan el shutdown ordenado
+- Each stage closes its output channel when it finishes
+- Errors are reported through a dedicated channel (non-blocking)
+- Supports graceful cancellation via `context.Context`
+- SIGINT/SIGTERM signals trigger orderly shutdown
 
-## Estructura del proyecto
+## Project Structure
 
 ```
 03-concurrent-pipeline/
-├── go.mod                    # Modulo Go (stdlib only)
-├── main.go                   # Punto de entrada CLI
+├── go.mod                    # Go module (stdlib only)
+├── main.go                   # CLI entry point
 ├── pipeline/
-│   ├── pipeline.go           # Orquestador del pipeline
-│   ├── pipeline_test.go      # Tests de integracion y benchmarks
-│   ├── reader.go             # Etapa de lectura CSV
-│   ├── transformer.go        # Worker pool con calculo de impuestos
-│   ├── aggregator.go         # Fan-in y agregacion
-│   └── writer.go             # Salida CSV o stdout
+│   ├── pipeline.go           # Pipeline orchestrator
+│   ├── pipeline_test.go      # Integration tests and benchmarks
+│   ├── reader.go             # CSV reading stage
+│   ├── transformer.go        # Worker pool with tax calculation
+│   ├── aggregator.go         # Fan-in and aggregation
+│   └── writer.go             # CSV or stdout output
 ├── model/
-│   └── record.go             # Tipos de datos
+│   └── record.go             # Data types
 └── testdata/
-    └── sales.csv             # Dataset de ejemplo (50 registros)
+    └── sales.csv             # Example dataset (50 records)
 ```
 
-## Compilar y ejecutar
+## Build and Run
 
 ```bash
-# Compilar
+# Build
 go build -o pipeline .
 
-# Ejecutar con resumen en stdout
+# Run with summary on stdout
 go run main.go -input testdata/sales.csv
 
-# Ejecutar con salida CSV y 8 workers
-go run main.go -input testdata/sales.csv -output resultado.csv -workers 8
+# Run with CSV output and 8 workers
+go run main.go -input testdata/sales.csv -output result.csv -workers 8
 
-# Con buffer personalizado
+# With custom buffer
 go run main.go -input testdata/sales.csv -workers 4 -buffer 200
 ```
 
-### Flags disponibles
+### Available Flags
 
-| Flag       | Descripcion                              | Valor por defecto   |
+| Flag       | Description                              | Default             |
 |------------|------------------------------------------|---------------------|
-| `-input`   | Ruta al CSV de entrada (obligatorio)     | -                   |
-| `-output`  | Ruta al CSV de salida (opcional)         | "" (solo stdout)    |
-| `-workers` | Numero de workers concurrentes           | `runtime.NumCPU()`  |
-| `-buffer`  | Tamano del buffer de canales             | 100                 |
+| `-input`   | Path to the input CSV (required)         | -                   |
+| `-output`  | Path to the output CSV (optional)        | "" (stdout only)    |
+| `-workers` | Number of concurrent workers             | `runtime.NumCPU()`  |
+| `-buffer`  | Channel buffer size                      | 100                 |
 
-## Ejemplo de salida
+## Example Output
 
 ```
-Iniciando pipeline con 8 workers...
-Archivo de entrada: testdata/sales.csv
+Starting pipeline with 8 workers...
+Input file: testdata/sales.csv
 
 ============================================================
-          RESUMEN DEL PIPELINE DE VENTAS
+          SALES PIPELINE SUMMARY
 ============================================================
-  Registros procesados:   50
-  Ingresos totales:       $45832.47
-  Workers utilizados:     8
-  Tiempo de proceso:      1.234ms
+  Records processed:    50
+  Total revenue:        $45832.47
+  Workers used:         8
+  Processing time:      1.234ms
 ------------------------------------------------------------
-  INGRESOS POR CATEGORIA:
+  REVENUE BY CATEGORY:
     Electronics          $15234.56
     Food                 $3456.78
     Software             $2345.67
     Clothing             $8901.23
     Books                $4567.89
 ------------------------------------------------------------
-  INGRESOS POR REGION:
+  REVENUE BY REGION:
     EU                   $18234.56
     US                   $12345.67
     LATAM                $8901.23
     ASIA                 $6351.01
 ------------------------------------------------------------
-  TOP PRODUCTOS POR INGRESOS:
+  TOP PRODUCTS BY REVENUE:
      1. Laptop                Qty: 2      $2419.98
      2. Headphones            Qty: 55     $9982.50
      ...
@@ -114,35 +114,35 @@ Archivo de entrada: testdata/sales.csv
 ## Tests
 
 ```bash
-# Ejecutar todos los tests
+# Run all tests
 go test ./...
 
-# Tests con verbose
+# Tests with verbose
 go test -v ./pipeline/
 
-# Solo tests de integracion
+# Only integration tests
 go test -v -run TestPipeline ./pipeline/
 
-# Solo tests de impuestos
+# Only tax tests
 go test -v -run TestTransformador ./pipeline/
 ```
 
 ## Benchmarks
 
 ```bash
-# Ejecutar todos los benchmarks
+# Run all benchmarks
 go test -bench=. -benchmem ./pipeline/
 
-# Comparar 1 worker vs N workers
+# Compare 1 worker vs N workers
 go test -bench=BenchmarkPipeline -benchmem -count=5 ./pipeline/
 
-# Con benchstat (instalar: go install golang.org/x/perf/cmd/benchstat@latest)
+# With benchstat (install: go install golang.org/x/perf/cmd/benchstat@latest)
 go test -bench=BenchmarkPipeline1Worker -benchmem -count=10 ./pipeline/ > 1worker.txt
 go test -bench=BenchmarkPipelineNWorkers -benchmem -count=10 ./pipeline/ > nworkers.txt
 benchstat 1worker.txt nworkers.txt
 ```
 
-### Ejemplo de resultados de benchmark
+### Example Benchmark Results
 
 ```
 BenchmarkPipeline1Worker-8     10000    105234 ns/op    45678 B/op    234 allocs/op
@@ -151,29 +151,29 @@ BenchmarkPipeline4Workers-8    15000     72345 ns/op    52345 B/op    312 allocs
 BenchmarkPipelineNWorkers-8    18000     65432 ns/op    56789 B/op    345 allocs/op
 ```
 
-## Patrones de concurrencia demostrados
+## Concurrency Patterns Demonstrated
 
-| Patron                    | Donde se usa                                       |
+| Pattern                   | Where It Is Used                                   |
 |---------------------------|----------------------------------------------------|
-| **Fan-out**               | `transformer.go` — N workers leen del mismo canal  |
-| **Fan-in**                | `aggregator.go` — un consumidor recoge resultados  |
-| **Worker Pool**           | `transformer.go` — pool configurable de goroutines |
-| **Pipeline**              | `pipeline.go` — etapas conectadas por canales      |
-| **Context Cancellation**  | Todas las etapas respetan `ctx.Done()`             |
-| **Graceful Shutdown**     | `main.go` — SIGINT/SIGTERM cancela el contexto     |
-| **WaitGroup**             | `transformer.go` — coordina cierre de workers      |
-| **Buffered Channels**     | Todos los canales usan buffer configurable         |
-| **Non-blocking Send**     | `reader.go` — envio de errores sin bloqueo         |
+| **Fan-out**               | `transformer.go` — N workers read from the same channel  |
+| **Fan-in**                | `aggregator.go` — one consumer collects results    |
+| **Worker Pool**           | `transformer.go` — configurable goroutine pool     |
+| **Pipeline**              | `pipeline.go` — stages connected by channels       |
+| **Context Cancellation**  | All stages respect `ctx.Done()`                    |
+| **Graceful Shutdown**     | `main.go` — SIGINT/SIGTERM cancels the context     |
+| **WaitGroup**             | `transformer.go` — coordinates worker shutdown     |
+| **Buffered Channels**     | All channels use configurable buffers              |
+| **Non-blocking Send**     | `reader.go` — non-blocking error sending           |
 
-## Tasas de impuesto por region
+## Tax Rates by Region
 
-| Region | Tasa |
+| Region | Rate |
 |--------|------|
 | EU     | 21%  |
 | US     | 8%   |
 | LATAM  | 16%  |
 | ASIA   | 10%  |
 
-## Dependencias
+## Dependencies
 
-Solo stdlib de Go: `encoding/csv`, `context`, `sync`, `os`, `flag`, `os/signal`, `time`, `fmt`, `sort`, `strconv`, `io`, `strings`.
+Only Go's stdlib: `encoding/csv`, `context`, `sync`, `os`, `flag`, `os/signal`, `time`, `fmt`, `sort`, `strconv`, `io`, `strings`.

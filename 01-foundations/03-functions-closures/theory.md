@@ -1,26 +1,26 @@
 # 03 - Functions & Closures
 
-## Funciones basicas
+## Basic functions
 
 ```go
 func add(a int, b int) int {
     return a + b
 }
 
-// Parametros del mismo tipo se pueden agrupar
+// Parameters of the same type can be grouped
 func add(a, b int) int {
     return a + b
 }
 ```
 
-- **Nombre en minuscula** (`add`) = privado (solo visible dentro del package)
-- **Nombre en mayuscula** (`Add`) = publico (visible desde otros packages)
+- **Lowercase name** (`add`) = private (only visible within the package)
+- **Uppercase name** (`Add`) = public (visible from other packages)
 
-> Esta regla de visibilidad aplica a TODO en Go: funciones, tipos, variables, constantes, campos de struct.
+> This visibility rule applies to EVERYTHING in Go: functions, types, variables, constants, struct fields.
 
 ## Multiple return values
 
-Go permite devolver multiples valores. Es la base del error handling:
+Go allows returning multiple values. It is the basis of error handling:
 
 ```go
 func divide(a, b float64) (float64, error) {
@@ -30,7 +30,7 @@ func divide(a, b float64) (float64, error) {
     return a / b, nil
 }
 
-// El caller DEBE manejar ambos valores
+// The caller MUST handle both values
 result, err := divide(10, 3)
 if err != nil {
     log.Fatal(err)
@@ -38,28 +38,28 @@ if err != nil {
 fmt.Println(result)
 ```
 
-> **Patron fundamental**: la ultima posicion del return es `error`. Si `err != nil`, el resto de valores son invalidos.
+> **Fundamental pattern**: the last return position is `error`. If `err != nil`, the rest of the values are invalid.
 
 ## Named return values
 
-Puedes nombrar los valores de retorno. Se inicializan con zero values:
+You can name return values. They are initialized with zero values:
 
 ```go
 func divide(a, b float64) (result float64, err error) {
     if b == 0 {
         err = fmt.Errorf("division by zero")
-        return // "naked return" — devuelve result=0, err=<el error>
+        return // "naked return" — returns result=0, err=<the error>
     }
     result = a / b
     return
 }
 ```
 
-> **Consejo**: los named returns son utiles para documentar que devuelve una funcion, pero los **naked returns** (return sin valores) hacen el codigo menos legible. Usalos solo en funciones cortas.
+> **Tip**: named returns are useful for documenting what a function returns, but **naked returns** (return without values) make the code less readable. Use them only in short functions.
 
 ## Variadic functions
 
-Funciones que aceptan un numero variable de argumentos:
+Functions that accept a variable number of arguments:
 
 ```go
 func sum(nums ...int) int {
@@ -70,31 +70,31 @@ func sum(nums ...int) int {
     return total
 }
 
-// Llamar
+// Call
 sum(1, 2, 3)       // 6
 sum(1, 2, 3, 4, 5) // 15
 
-// Pasar un slice con ...
+// Pass a slice with ...
 nums := []int{1, 2, 3}
 sum(nums...)        // 6
 ```
 
-- `nums` dentro de la funcion es un `[]int` (slice)
-- El parametro variadic debe ser el **ultimo**
-- `fmt.Println` y `append` son variadic
+- `nums` inside the function is an `[]int` (slice)
+- The variadic parameter must be the **last one**
+- `fmt.Println` and `append` are variadic
 
-## Funciones como first-class citizens
+## Functions as first-class citizens
 
-En Go, las funciones son valores. Puedes asignarlas a variables, pasarlas como argumento, y devolverlas:
+In Go, functions are values. You can assign them to variables, pass them as arguments, and return them:
 
 ```go
-// Asignar a variable
+// Assign to variable
 greet := func(name string) string {
-    return "Hola, " + name
+    return "Hello, " + name
 }
 fmt.Println(greet("Jordi"))
 
-// Tipo de funcion
+// Function type
 type MathFunc func(int, int) int
 
 func apply(fn MathFunc, a, b int) int {
@@ -106,13 +106,13 @@ result := apply(func(a, b int) int { return a + b }, 3, 4) // 7
 
 ## Closures
 
-Una closure es una funcion que **captura variables de su scope externo**:
+A closure is a function that **captures variables from its outer scope**:
 
 ```go
 func counter() func() int {
     count := 0
     return func() int {
-        count++ // captura 'count' del scope externo
+        count++ // captures 'count' from the outer scope
         return count
     }
 }
@@ -122,62 +122,62 @@ fmt.Println(c()) // 1
 fmt.Println(c()) // 2
 fmt.Println(c()) // 3
 
-// Cada llamada a counter() crea una closure independiente
+// Each call to counter() creates an independent closure
 c2 := counter()
-fmt.Println(c2()) // 1 — su propio contador
+fmt.Println(c2()) // 1 — its own counter
 ```
 
-La closure **mantiene una referencia** a la variable, no una copia. Si la variable cambia fuera, la closure ve el cambio.
+The closure **maintains a reference** to the variable, not a copy. If the variable changes outside, the closure sees the change.
 
-### Trampa clasica: closure en loop
+### Classic trap: closure in a loop
 
 ```go
-// BUG: todas las goroutines ven el mismo valor de i
+// BUG: all goroutines see the same value of i
 for i := 0; i < 5; i++ {
     go func() {
-        fmt.Println(i) // probablemente imprime "5" cinco veces
+        fmt.Println(i) // probably prints "5" five times
     }()
 }
 
-// SOLUCION 1: pasar como argumento
+// SOLUTION 1: pass as argument
 for i := 0; i < 5; i++ {
     go func(n int) {
-        fmt.Println(n) // correcto: cada goroutine tiene su copia
+        fmt.Println(n) // correct: each goroutine has its own copy
     }(i)
 }
 
-// SOLUCION 2 (Go 1.22+): la variable del loop tiene scope por iteracion
-// En Go 1.22+, el primer ejemplo ya funciona correctamente
+// SOLUTION 2 (Go 1.22+): the loop variable has per-iteration scope
+// In Go 1.22+, the first example already works correctly
 ```
 
-> **Pregunta de entrevista clasica**: "Que imprime este codigo?" con una closure en un loop. Conocer este bug y las soluciones es fundamental.
+> **Classic interview question**: "What does this code print?" with a closure in a loop. Knowing this bug and the solutions is fundamental.
 
-## Anonymous functions (funciones anonimas)
+## Anonymous functions
 
-Funciones sin nombre, utiles para callbacks y operaciones inline:
+Functions without a name, useful for callbacks and inline operations:
 
 ```go
-// Ejecutar inmediatamente (IIFE)
+// Execute immediately (IIFE)
 result := func(a, b int) int {
     return a * b
 }(3, 4) // 12
 
-// Como callback
+// As callback
 numbers := []int{5, 3, 8, 1, 9}
 sort.Slice(numbers, func(i, j int) bool {
     return numbers[i] < numbers[j]
 })
 ```
 
-## Defer con funciones
+## Defer with functions
 
-`defer` trabaja con funciones (anonimas o nombradas):
+`defer` works with functions (anonymous or named):
 
 ```go
 func process() {
     fmt.Println("start")
 
-    // defer con funcion anonima
+    // defer with anonymous function
     defer func() {
         fmt.Println("cleanup")
     }()
@@ -187,7 +187,7 @@ func process() {
 }
 ```
 
-### Defer para medir tiempo (patron comun)
+### Defer to measure time (common pattern)
 
 ```go
 func measureTime(name string) func() {
@@ -199,15 +199,15 @@ func measureTime(name string) func() {
 
 func doWork() {
     defer measureTime("doWork")()
-    // ... trabajo costoso ...
+    // ... expensive work ...
 }
 ```
 
-> Nota el `()` al final: `defer measureTime("doWork")()`. Primero se ejecuta `measureTime` (que guarda el tiempo inicial), y luego el defer ejecuta la funcion devuelta al salir.
+> Note the `()` at the end: `defer measureTime("doWork")()`. First `measureTime` executes (which saves the start time), and then defer executes the returned function on exit.
 
-## Patron: Functional Options
+## Pattern: Functional Options
 
-Patron muy popular en Go para constructores con muchas opciones:
+Very popular pattern in Go for constructors with many options:
 
 ```go
 type Server struct {
@@ -216,7 +216,7 @@ type Server struct {
     timeout time.Duration
 }
 
-// Option es una funcion que modifica el Server
+// Option is a function that modifies the Server
 type Option func(*Server)
 
 func WithPort(port int) Option {
@@ -243,18 +243,18 @@ func NewServer(host string, opts ...Option) *Server {
     return s
 }
 
-// Uso limpio y extensible:
+// Clean and extensible usage:
 s := NewServer("localhost",
     WithPort(9090),
     WithTimeout(5 * time.Second),
 )
 ```
 
-> Este patron aparece en muchas librerias populares de Go (gRPC, zap logger, etc). Es **muy probable** que te pregunten por el en entrevista.
+> This pattern appears in many popular Go libraries (gRPC, zap logger, etc). It is **very likely** you will be asked about it in an interview.
 
-## Patron: Middleware / Function wrapping
+## Pattern: Middleware / Function wrapping
 
-Funciones que envuelven otras funciones para anyadir comportamiento:
+Functions that wrap other functions to add behavior:
 
 ```go
 type Handler func(string) string
@@ -272,14 +272,14 @@ func toUpper(s string) string {
     return strings.ToUpper(s)
 }
 
-// Componer
+// Compose
 handler := withLogging(toUpper)
 handler("hello") // Input: hello, Output: HELLO
 ```
 
 ## init()
 
-Cada package puede tener funciones `init()` que se ejecutan **automaticamente** al importar el package:
+Each package can have `init()` functions that execute **automatically** when the package is imported:
 
 ```go
 var config map[string]string
@@ -290,27 +290,27 @@ func init() {
 }
 ```
 
-- Se ejecutan antes de `main()`
-- Pueden haber multiples `init()` por archivo
-- Se ejecutan en orden de declaracion
-- **Evita usarlas** para logica compleja — hacen el codigo dificil de testear
+- They execute before `main()`
+- There can be multiple `init()` per file
+- They execute in declaration order
+- **Avoid using them** for complex logic — they make code hard to test
 
-## Preguntas de entrevista frecuentes
+## Common interview questions
 
-1. **Go soporta sobrecarga de funciones (overloading)?**
-   No. Cada nombre de funcion debe ser unico dentro del package. Usa nombres descriptivos o variadic params.
+1. **Does Go support function overloading?**
+   No. Each function name must be unique within the package. Use descriptive names or variadic params.
 
-2. **Que es una closure y como maneja la memoria?**
-   Una closure es una funcion que captura variables de su scope externo. Las variables capturadas se mueven al heap (escape analysis) y viven mientras la closure exista.
+2. **What is a closure and how does it handle memory?**
+   A closure is a function that captures variables from its outer scope. Captured variables are moved to the heap (escape analysis) and live as long as the closure exists.
 
-3. **Diferencia entre value receiver y pointer receiver en methods?**
-   Value receiver trabaja con copia (no modifica el original). Pointer receiver trabaja con referencia (modifica el original y evita copias). Lo veremos en detalle en modulo 04.
+3. **Difference between value receiver and pointer receiver in methods?**
+   Value receiver works with a copy (does not modify the original). Pointer receiver works with a reference (modifies the original and avoids copies). We will see this in detail in module 04.
 
-4. **Que es el functional options pattern?**
-   Un patron que usa closures y variadic params para crear constructores flexibles y extensibles. Cada opcion es una funcion que modifica la configuracion.
+4. **What is the functional options pattern?**
+   A pattern that uses closures and variadic params to create flexible and extensible constructors. Each option is a function that modifies the configuration.
 
-5. **Cuando usarias init() y cuando no?**
-   Usar: registrar drivers (database/sql), setup de constantes complejas. No usar: logica de negocio, I/O, dependencias externas. Hace el codigo dificil de testear y el orden de ejecucion poco predecible.
+5. **When would you use init() and when not?**
+   Use: registering drivers (database/sql), setup of complex constants. Do not use: business logic, I/O, external dependencies. It makes code hard to test and execution order unpredictable.
 
-6. **Que pasa con closures en un for loop?**
-   Todas las closures comparten la misma variable del loop. En Go <1.22, al ejecutarse, todas ven el ultimo valor. Solucion: pasar la variable como argumento o usar Go 1.22+ donde cada iteracion tiene su propia variable.
+6. **What happens with closures in a for loop?**
+   All closures share the same loop variable. In Go <1.22, when they execute, they all see the last value. Solution: pass the variable as an argument or use Go 1.22+ where each iteration has its own variable.

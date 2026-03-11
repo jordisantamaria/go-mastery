@@ -2,50 +2,50 @@
 
 ## if / else
 
-En Go, **no hay parentesis** alrededor de la condicion. Las llaves son **obligatorias**:
+In Go, **there are no parentheses** around the condition. Braces are **mandatory**:
 
 ```go
 x := 10
 if x > 5 {
-    fmt.Println("mayor que 5")
+    fmt.Println("greater than 5")
 } else if x > 0 {
-    fmt.Println("positivo")
+    fmt.Println("positive")
 } else {
-    fmt.Println("cero o negativo")
+    fmt.Println("zero or negative")
 }
 ```
 
-### if con statement inicial (idiomatico)
+### if with initial statement (idiomatic)
 
-Puedes declarar una variable dentro del `if` — su scope se limita al bloque:
+You can declare a variable inside the `if` — its scope is limited to the block:
 
 ```go
 if err := doSomething(); err != nil {
     fmt.Println("error:", err)
     return
 }
-// err no existe aqui fuera
+// err does not exist out here
 ```
 
-> Este patron es **extremadamente comun** en Go. Lo veras en cada funcion que maneje errores.
+> This pattern is **extremely common** in Go. You will see it in every function that handles errors.
 
 ## switch
 
-Mucho mas potente que en otros lenguajes. **No necesita `break`** (no hay fall-through por defecto):
+Much more powerful than in other languages. **No `break` needed** (no fall-through by default):
 
 ```go
 day := "Monday"
 switch day {
 case "Monday", "Tuesday", "Wednesday", "Thursday", "Friday":
-    fmt.Println("Dia laboral")
+    fmt.Println("Weekday")
 case "Saturday", "Sunday":
-    fmt.Println("Fin de semana")
+    fmt.Println("Weekend")
 default:
-    fmt.Println("Dia invalido")
+    fmt.Println("Invalid day")
 }
 ```
 
-### switch sin expresion (reemplaza if/else largo)
+### switch without expression (replaces long if/else)
 
 ```go
 score := 85
@@ -61,41 +61,41 @@ default:
 }
 ```
 
-### Type switch (importante para interfaces)
+### Type switch (important for interfaces)
 
 ```go
 func describe(i interface{}) string {
     switch v := i.(type) {
     case int:
-        return fmt.Sprintf("entero: %d", v)
+        return fmt.Sprintf("integer: %d", v)
     case string:
         return fmt.Sprintf("string: %s", v)
     case bool:
         return fmt.Sprintf("bool: %t", v)
     default:
-        return fmt.Sprintf("tipo desconocido: %T", v)
+        return fmt.Sprintf("unknown type: %T", v)
     }
 }
 ```
 
-### fallthrough (raro, pero existe)
+### fallthrough (rare, but exists)
 
 ```go
 switch 1 {
 case 1:
-    fmt.Println("uno")
-    fallthrough // fuerza la ejecucion del siguiente case
+    fmt.Println("one")
+    fallthrough // forces execution of the next case
 case 2:
-    fmt.Println("dos") // se ejecuta aunque case != 2
+    fmt.Println("two") // executes even though case != 2
 }
 ```
 
-## for (el unico loop en Go)
+## for (the only loop in Go)
 
-Go solo tiene `for`. No hay `while` ni `do-while`:
+Go only has `for`. There is no `while` or `do-while`:
 
 ```go
-// for clasico
+// classic for
 for i := 0; i < 10; i++ {
     fmt.Println(i)
 }
@@ -106,28 +106,28 @@ for count < 5 {
     count++
 }
 
-// loop infinito
+// infinite loop
 for {
-    // usa break para salir
+    // use break to exit
     break
 }
 ```
 
-### range — iterar sobre colecciones
+### range — iterating over collections
 
 ```go
 // Slice
 nums := []int{10, 20, 30}
 for i, v := range nums {
-    fmt.Printf("indice %d: valor %d\n", i, v)
+    fmt.Printf("index %d: value %d\n", i, v)
 }
 
-// Solo valores (descarta indice)
+// Values only (discard index)
 for _, v := range nums {
     fmt.Println(v)
 }
 
-// Solo indices
+// Indices only
 for i := range nums {
     fmt.Println(i)
 }
@@ -138,34 +138,34 @@ for key, value := range m {
     fmt.Printf("%s: %d\n", key, value)
 }
 
-// String (itera por runes, no bytes)
+// String (iterates by runes, not bytes)
 for i, r := range "Hola 🌍" {
     fmt.Printf("byte %d: rune %c\n", i, r)
 }
 ```
 
-### break y continue
+### break and continue
 
 ```go
 for i := 0; i < 100; i++ {
     if i%2 == 0 {
-        continue // salta a la siguiente iteracion
+        continue // skip to the next iteration
     }
     if i > 10 {
-        break // sale del loop
+        break // exit the loop
     }
     fmt.Println(i) // 1, 3, 5, 7, 9
 }
 ```
 
-### Labels (break/continue en loops anidados)
+### Labels (break/continue in nested loops)
 
 ```go
 outer:
 for i := 0; i < 3; i++ {
     for j := 0; j < 3; j++ {
         if i == 1 && j == 1 {
-            break outer // sale de AMBOS loops
+            break outer // exits BOTH loops
         }
         fmt.Printf("(%d, %d) ", i, j)
     }
@@ -174,7 +174,7 @@ for i := 0; i < 3; i++ {
 
 ## defer
 
-`defer` programa una funcion para ejecutarse **al salir de la funcion actual** (despues del return). Se ejecutan en orden **LIFO** (ultimo en entrar, primero en salir):
+`defer` schedules a function to execute **when the current function exits** (after the return). They execute in **LIFO** (last in, first out) order:
 
 ```go
 func readFile(path string) error {
@@ -182,9 +182,9 @@ func readFile(path string) error {
     if err != nil {
         return err
     }
-    defer f.Close() // se ejecuta al salir de readFile, pase lo que pase
+    defer f.Close() // executes when readFile exits, no matter what
 
-    // trabajar con el archivo...
+    // work with the file...
     return nil
 }
 ```
@@ -200,19 +200,19 @@ func main() {
 }
 ```
 
-### defer evalua argumentos inmediatamente
+### defer evaluates arguments immediately
 
 ```go
 x := 10
-defer fmt.Println(x) // imprime 10, no 20
+defer fmt.Println(x) // prints 10, not 20
 x = 20
 ```
 
-> Los argumentos se evaluan cuando se declara el `defer`, no cuando se ejecuta.
+> Arguments are evaluated when `defer` is declared, not when it executes.
 
-## panic y recover
+## panic and recover
 
-`panic` detiene la ejecucion normal. `recover` lo captura (solo dentro de `defer`):
+`panic` stops normal execution. `recover` catches it (only inside `defer`):
 
 ```go
 func safeDiv(a, b int) (result int, err error) {
@@ -222,25 +222,25 @@ func safeDiv(a, b int) (result int, err error) {
         }
     }()
 
-    return a / b, nil // si b == 0, Go hace panic
+    return a / b, nil // if b == 0, Go panics
 }
 ```
 
-> **Regla**: no uses `panic` para errores normales. Solo para situaciones verdaderamente irrecuperables (bug en el programa, estado corrupto). Usa `error` para todo lo demas.
+> **Rule**: do not use `panic` for normal errors. Only for truly unrecoverable situations (bug in the program, corrupted state). Use `error` for everything else.
 
-## Preguntas de entrevista frecuentes
+## Common interview questions
 
-1. **Go tiene while loop?**
-   No. `for` cubre todos los casos: `for condition {}` es el equivalente a while.
+1. **Does Go have a while loop?**
+   No. `for` covers all cases: `for condition {}` is the equivalent of while.
 
-2. **Que pasa si haces defer dentro de un loop?**
-   Los defers se acumulan y se ejecutan todos al salir de la funcion (no al salir del loop). Puede causar memory leaks si el loop es largo. Solucion: extraer el cuerpo del loop a una funcion separada.
+2. **What happens if you use defer inside a loop?**
+   Defers accumulate and all execute when the function exits (not when the loop exits). This can cause memory leaks if the loop is long. Solution: extract the loop body into a separate function.
 
-3. **En que orden se ejecutan los defers?**
-   LIFO — ultimo defer declarado, primero en ejecutarse.
+3. **In what order do defers execute?**
+   LIFO — the last defer declared is the first to execute.
 
-4. **Cuando usar panic vs error?**
-   `error` para flujo normal (archivo no encontrado, input invalido, etc). `panic` solo para bugs irrecuperables (indice fuera de rango, nil pointer en lugar imposible).
+4. **When to use panic vs error?**
+   `error` for normal flow (file not found, invalid input, etc). `panic` only for unrecoverable bugs (index out of range, nil pointer in an impossible place).
 
-5. **Por que Go no tiene fall-through por defecto en switch?**
-   Porque el fall-through implicito (como en C/Java) es fuente de bugs. Si lo necesitas, usas `fallthrough` explicitamente.
+5. **Why doesn't Go have fall-through by default in switch?**
+   Because implicit fall-through (like in C/Java) is a source of bugs. If you need it, you use `fallthrough` explicitly.
